@@ -77,32 +77,32 @@ pip install -r requirements.txt
 
 ```bash
 # Twin-TD3 + SEE（保密能量效率）
-python main_train_uav_bs_fas.py --drl td3 --reward see
+python src/main_train.py --drl td3 --reward see
 
 # Twin-TD3 + SSR（保密速率）
-python main_train_uav_bs_fas.py --drl td3 --reward ssr
+python src/main_train.py --drl td3 --reward ssr
 
 # DDPG 对比基线
-python main_train_uav_bs_fas.py --drl ddpg --reward see
+python src/main_train.py --drl ddpg --reward see
 
 # 指定训练轮数（默认350轮）
-python main_train_uav_bs_fas.py --drl td3 --reward see --ep-num 500
+python src/main_train.py --drl td3 --reward see --ep-num 500
 
 # 从已有检查点继续训练
-python main_train_uav_bs_fas.py --drl td3 --reward see --load-path data/storage/scratch/<DIR>
-
-# Active RIS 增强版训练
-python train_aris.py
+python src/main_train.py --drl td3 --reward see --load-path data/storage/scratch/<DIR>
 ```
 
 ### 评估与可视化
 
 ```shell
 # 批量评估
-bash batch_eval.sh
+bash scripts/batch_eval.sh
 
 # 绘制轨迹、速率、能量效率图
-python load_and_plot.py --path data/storage/scratch/<DIR> --ep-num 350
+python scripts/load_and_plot.py --path data/storage/scratch/<DIR> --ep-num 350
+
+# 生成实验结果图表
+python scripts/generate_plots.py --path data/storage/scratch/<DIR>
 ```
 
 ## 能耗模型
@@ -126,19 +126,45 @@ P = P₀ + Pᵢ + P_tip + P_body
 
 ```
 Twin-TD3-main/
-├── main_train_uav_bs_fas.py   # UAV-BS-FAS 主训练脚本
-├── train_aris.py              # Active RIS 训练
-├── env_uav_bs_fas.py          # UAV-BS-FAS 环境模型
-├── td3.py                     # Twin-TD3 智能体
-├── ddpg.py                    # DDPG 智能体
-├── channel.py                 # 毫米波信道建模 (UMi)
-├── entity.py                  # 实体定义 (UAV, 用户, 窃听者, RIS)
-├── math_tool.py               # 数学工具
-├── render.py                  # 可视化
-├── data_manager.py            # 数据管理
-├── generate_plots*.py         # 绘图工具
-├── batch_train.sh / batch_eval.sh
-└── requirements.txt
+├── src/                        # 核心代码
+│   ├── agents/                 # DRL 智能体
+│   │   ├── td3_agent.py        # Twin-TD3 智能体
+│   │   └── ddpg_agent.py       # DDPG 智能体
+│   ├── networks/               # 神经网络结构
+│   │   └── actor_critic.py     # Actor-Critic 网络定义
+│   ├── envs/                   # 环境模型
+│   │   ├── entity.py           # 实体定义 (UAV, RIS, User, Attacker)
+│   │   ├── channel.py          # 毫米波 LoS 信道模型
+│   │   ├── math_tool.py        # 数学工具函数
+│   │   ├── uav_comm_env.py     # 主环境 (UAV-BS-FAS)
+│   │   ├── uav_comm_env_legacy.py  # 旧版环境
+│   │   └── minimal_irs_env.py  # 最小 IRS 环境
+│   ├── utils/                  # 工具模块
+│   │   ├── data_manager.py     # 数据管理 (读写 .mat/.xlsx)
+│   │   └── renderer.py         # 3D 可视化
+│   ├── tests/                  # 测试
+│   │   └── test_uav_comm.py    # 环境单元测试
+│   └── main_train.py           # 主训练脚本入口
+├── scripts/                    # 辅助脚本
+│   ├── generate_plots.py       # 统一绘图工具 (--path 参数化)
+│   ├── load_and_plot.py        # 训练结果分析
+│   ├── plot_see.py             # SEE 对比图
+│   ├── plot_ssr.py             # SSR 对比图
+│   ├── plot_traj.py            # 轨迹对比图
+│   ├── run_simulation.py       # 仿真运行
+│   ├── run_and_report.py       # 自动报告生成
+│   ├── batch_train.sh          # 批量训练
+│   ├── batch_eval.sh           # 批量评估
+│   └── legacy/                 # 旧版训练脚本归档
+├── configs/
+│   └── config.yaml             # 配置文件
+├── runs/                       # 训练产出 (git 忽略)
+├── data/
+│   └── init_location.xlsx      # 实体初始位置
+├── docs/                       # 文档
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
 ## 参考文献
