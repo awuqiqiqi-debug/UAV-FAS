@@ -1,188 +1,152 @@
-# Deep Reinforcement Learning for Secrecy Energy-Efficient UAV Communication with Reconfigurable Intelligent Surfaces
+# UAV-BS-FAS: 流体天线辅助无人机保密通信系统
 
-**IEEE Wireless Communications and Networking Conference 2023 (WCNC 2023)** </br>
-Simulation for Conference Proceedings https://doi.org/10.1109/WCNC55385.2023.10118891 </br>
-Refer [this link](https://github.com/yjwong1999/Twin-TD3/blob/main/WCNC2023%20WS-09%20%231570879488.pdf) for the preprint
+基于深度强化学习的 **UAV-BS-FAS（无人机基站-流体天线系统）** 保密通信联合优化。
 
-## Abstract
-This paper investigates the **physical layer security (PLS)** issue in **reconfigurable intelligent surface (RIS) aided millimeter-wave rotary-wing unmanned aerial vehicle (UAV) communications** under the presence of multiple eavesdroppers and imperfect channel state information (CSI). The goal is to maximize the **worst-case secrecy energy efficiency (SEE)** of UAV via a **joint optimization of flight trajectory, UAV active beamforming and RIS passive beamforming**. By interacting with the dynamically changing UAV environment, real-time decision making per time slot is possible via deep reinforcement learning (DRL). To decouple the continuous optimization variables, we introduce a **twin twin-delayed deep deterministic policy gradient (TTD3)** to maximize the expected cumulative reward, which is linked to SEE enhancement. Simulation results confirm that the proposed method achieves greater secrecy energy savings than the traditional twin-deep deterministic policy gradient DRL (TDDRL)-based method. 
+## 系统模型
 
-## TLDR
+在存在窃听者的场景下，通过联合优化 **UAV飞行轨迹、主动波束赋形、FAS天线端口选择和RIS被动波束赋形**，最大化保密能量效率（SEE）。
 
-### System model: 
-**RIS-aided mmWave UAV system** under the presence of **eavesdroppers** and **imperfect channel state information (CSI)** </br>
-
-### Solution: 
-A **Twin-TD3 (TTD3) algorithm** to decouple the joint optimization of:
-1. UAV active beamforming and RIS passive beamforming 
-2. UAV flight trajectory
-
-We adopt **double DRL framework**, where the 1st and 2nd agent provides the policy for task (1) and (2), respectively.
-
-## How to use this repo
-
-Setup the repo
 ```
-conda create --name <env> python=3.10.4
-conda activate <env>
-git clone https://github.com/yjwong1999/Twin-TD3.git
-cd Twin-TD3
+    ┌─────────────────────────────────────────────┐
+    │              UAV-BS-FAS (无人机)              │
+    │  ┌──────┐  ┌──────┐                         │
+    │  │  BS  │  │ FAS  │  12个流体天线端口         │
+    │  │ 4天线 │  │      │  灵活端口选择增强空间分集   │
+    │  └──┬───┘  └──┬───┘                         │
+    └─────┼─────────┼─────────────────────────────┘
+          │    ↓    │
+     直射链路    RIS反射链路
+          │    ↓    │
+    ┌─────┼────┼────┼─────┐
+    │  ┌──┴──┐│ ┌──┴──┐  │
+    │  │用户1 ││ │用户2 │  │  ← 合法用户 (相长干涉增强)
+    │  └─────┘│ └─────┘  │
+    │         │ ┌───────┐│
+    │         │ │窃听者  ││  ← 窃听者 (相消干涉抑制)
+    │         │ └───────┘│
+    └─────────┼──────────┘
+          ┌───┴───┐
+          │  RIS  │  64个反射单元 (8×8阵列)
+          │地面固定│  被动波束赋形
+          └───────┘
+```
+
+## 关键参数
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| 载波频率 | 28 GHz | 毫米波频段 |
+| BS天线数 | 4 | 无人机基站天线 |
+| FAS端口数 | 12 | 流体天线端口 |
+| RIS单元数 | 64 | 8×8反射阵列 |
+| 最大发射功率 | 30 dBm | 无人机功率上限 |
+| 噪声功率 | -114 dBm | 接收端高斯噪声 |
+| 时隙长度 | 0.1 s | 单个优化时隙 |
+| 最大飞行距离 | 0.25 m/时隙 | 无人机移动约束 |
+| RIS位置 | (0, 50, 12.5) m | 地面固定 |
+
+## 算法框架
+
+采用 **双DRL框架**，两个智能体分别负责：
+
+1. **Agent 1 (波束赋形)** → 联合优化 UAV 主动波束赋形 + RIS 被动波束赋形 + FAS 端口选择
+2. **Agent 2 (轨迹)** → 优化 UAV 飞行轨迹
+
+| 算法 | 说明 |
+|------|------|
+| **Twin-TD3** | 双延迟深度确定性策略梯度（核心算法） |
+| **DDPG** | 深度确定性策略梯度（对比基线） |
+| **Active RIS** | 有源RIS增强版（`train_aris.py`） |
+
+## 优化目标
+
+- **SSR (Sum Secrecy Rate)** — 最大化保密速率之和
+- **SEE (Secrecy Energy Efficiency)** — 最大化保密能量效率（保密速率/能耗）
+
+## 环境安装
+
+```bash
+conda create --name uav-fas python=3.10
+conda activate uav-fas
 pip install -r requirements.txt
 ```
 
-User can train two types of algorithm for training:
-1. Twin DDPG is [TDDRL algorithm](https://doi.org/10.1109/LWC.2021.3081464)
-2. Twin TD3 is our proposed TTD3 algorithm
+## 使用方法
 
-Run the following  in the `bash` or `powershell`
+### 训练
 
-`main_train.py` is the main python file to train the DRL algorithms
-```shell
-# To use Twin DDPG with SSR as optimization goal
-python3 main_train.py --drl ddpg --reward ssr
+```bash
+# Twin-TD3 + SEE（保密能量效率）
+python main_train_uav_bs_fas.py --drl td3 --reward see
 
-# To use Twin TD3 with SSR as optimization goal
-python3 main_train.py --drl td3 --reward ssr
+# Twin-TD3 + SSR（保密速率）
+python main_train_uav_bs_fas.py --drl td3 --reward ssr
 
-# To use Twin DDPG with SEE as optimization goal
-python3 main_train.py --drl ddpg --reward see
+# DDPG 对比基线
+python main_train_uav_bs_fas.py --drl ddpg --reward see
 
-# To use Twin TD3 with SEE as optimization goal
-python3 main_train.py --drl td3 --reward see
+# 指定训练轮数（默认350轮）
+python main_train_uav_bs_fas.py --drl td3 --reward see --ep-num 500
 
+# 从已有检查点继续训练
+python main_train_uav_bs_fas.py --drl td3 --reward see --load-path data/storage/scratch/<DIR>
 
-
-# To use pretrained DRL for UAV trajectory (recommended for stable convergence)
-python3 main_train.py --drl td3 --reward see --trained-uav
-
-# To set number of episodes (default is 300)
-python3 main_train.py --drl td3 --reward see --ep-num 300
-
-# To set seeds for DRL weight initialization (not recommended)
-python3 main_train.py --drl td3 --reward see --seeds 0       # weights of both DRL are initialized with seed 0
-python3 main_train.py --drl td3 --reward see --seeds 0 1     # weights of DRL 1 and DRL2 are initialized with seed 0 and 1, respectively
+# Active RIS 增强版训练
+python train_aris.py
 ```
 
-`run_simulation.py` is the python file to run the simulation using your trained models
+### 评估与可视化
+
 ```shell
-# plot everything for each episode
-python3 run_simulation.py --path data/storage/scratch/<DIR>       # if you train the algorithm without the pretrained uav
-python3 run_simulation.py --path data/storage/trained_uav/<DIR>   # if you train the algorithm with the pretrained uav
-```
-
-
-`load_and_plot.py` is the python file to plot the (i) Rewards, (ii) Sum Secrecy Rate (SSR), (iii) Secrecy Energy Efficient (SEE), (iv) UAV Trajectory, (v) RIS configs for each episode in one experiments. The plotted figures are saved at `data/storage/scratch/<DIR>/plot` or `data/storage/trained_uav/<DIR>plot`
-```shell
-# plot everything for each episode
-python3 load_and_plot.py --path data/storage/scratch/<DIR> --ep-num 300       # if you train the algorithm without the pretrained uav
-python3 load_and_plot.py --path data/storage/trained_uav/<DIR> --ep-num 300   # if you train the algorithm with the pretrained uav
-```
-
-Note that you can use the bash script `batch_train.sh` and `batch_eval.sh` to train the algorithms and evaluate them using the previous two python codes
-```shell
-# To train on batch
-bash batch_train.sh
-
-# To evaluate on batch
+# 批量评估
 bash batch_eval.sh
+
+# 绘制轨迹、速率、能量效率图
+python load_and_plot.py --path data/storage/scratch/<DIR> --ep-num 350
 ```
 
-## Results
+## 能耗模型
 
-We run the ```main_train.py``` for 5 times for each settings below, and averaged out the performance
+采用经典旋翼无人机功率消耗模型：
 
-SSR and SEE              (the higher the better)
-Total Energy Consumption (the lower the better)
-
-| Algorithms                     | SSR (bits/s/Hz)| Energy (kJ) | SEE (bits/s/Hz/kJ)|
-|--------------------------------|----------------|-------------|-------------------|
-| TDDRL                          | 5.03           | 12.4        | 40.8              |
-| TTD3                           | 6.05           | 12.7        | 48.2              |
-| TDDRL (with energy constraint) | 4.68           | 11.2        | 39.4              |
-| TTD3  (with energy constraint) | 5.39           | 11.2        | 48.4              |
-
-Summary
-1. In terms of SSR, TTD3 outperforms TDDRL with or without energy constraint
-2. In terms of SEE and Energy, TTD3 (with energy constraint) outperforms all other algorithms
-3. Generally, TTD3 algorithm are better than TTDRL
-4. Even with energy contraint (trade-off between energy consumption and SSR), TTD3 outperforms TDDRL in all aspects
-
-\* Remarks: </br>
-Note that the performance of DRL (especially twin DRL) has a big variation, sometimes you may get extremely good (or bad) performance </br>
-The above benchmark results are averaged performance of several experiments, to get a more holistic understandings on the algorithms </br>
-It is advised to use the benchmark UAV models we trained, for better convergence. </br>
-This approach is consistent with the codes provided by [TDDRL](https://github.com/Brook1711/WCL-pulish-code)
-
-## References and Acknowledgement
-
-This work was supported by the **British Council** under **UK-ASEAN Institutional Links Early Career Researchers Scheme** with project number 913030644.
-
-Both **RIS Simulation** and the **System Model** for this Research Project are based the research work provided by [Brook1711](https://github.com/Brook1711). </br>
-We intended to fork the original repo for the system model (as stated below) as the base of this project. </br>
-However, GitHub does not allow a forked repo to be private. </br>
-Hence, we could not maintain our code based a forked version of the original repo, while keeping it private until the project is completed.
-We would like to express our utmost gratitude for [Brook1711](https://github.com/Brook1711) and his co-authors for their research work.
-
-### RIS Simulation
-RIS Simulation is based on the following research work: </br>
-[SimRIS Channel Simulator for Reconfigurable Intelligent Surface-Empowered Communication Systems](https://ieeexplore.ieee.org/document/9282349) </br>
-The original simulation code is coded in matlab, this [GitHub repo](https://github.com/Brook1711/RIS_components) provides a Python version of the simulation.
-
-### System Model: RIS-aided mmWave UAV communications
-The simulation of the System Model is provided by the following research work: </br>
-[Learning-Based Robust and Secure Transmission for Reconfigurable Intelligent Surface Aided Millimeter Wave UAV Communications](https://doi.org/10.1109/LWC.2021.3081464) </br>
-The code is provided in this [GitHub repo](https://github.com/Brook1711/WCL-pulish-code).
-
-### Rotary-Wing UAV
-We can derive the Rotary-Wing UAV’s propulsion energy consumption based on the following research work: </br>
-[Energy Minimization in Internet-of-Things System Based on Rotary-Wing UAV](https://doi.org/10.1109/LWC.2019.2916549)
-
-### TD3
-Main reference for TD3 implementation: </br>
-[PyTorch/TensorFlow 2.0 for TD3](https://github.com/philtabor/Actor-Critic-Methods-Paper-To-Code/tree/master/TD3)
-
-
-## TODO
-- [x] Add argparse arguments to set drl algo and reward type
-- [x] Add argparse arguments to set episode number
-- [x] Add argparse arguments to set seeds for the two DRLs
-- [x] Add argparse arguments to load pretrained DRL for UAV trajectory
-- [x] Add benchmark/pretrained model
-- [x] Project naming (use <DRL>_<Reward>_<Num> instead of using datetime format)
-- [x] Remove saving "best model", there are no best model, only latest model
-- [ ] The following codes can be used, but you have to manually change the filepath in the codes
-
-`plot_ssr.py` is the python file to plot the final episode's SSR for the 4 benchmarks in the paper
-```shell
-# plot ssr
-python3 plot_ssr.py
+```
+P = P₀ + Pᵢ + P_tip + P_body
 ```
 
-`plot_see.py` is the python file to plot the final episode's SSR for the 4 benchmarks in the paper
-```shell
-# plot see
-python3 plot_see.py
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| P₀ | 580.65 W | 桨叶基准剖面功率 |
+| Pᵢ | 790.67 W | 旋翼诱导功率 |
+| U_tip | 200 m/s | 桨尖线速度 |
+| m | 1.3 kg | 无人机质量 |
+| ρ | 1.225 kg/m³ | 空气密度 |
+| A_r | 0.79 m² | 旋翼桨盘面积 |
+
+## 项目结构
+
+```
+Twin-TD3-main/
+├── main_train_uav_bs_fas.py   # UAV-BS-FAS 主训练脚本
+├── train_aris.py              # Active RIS 训练
+├── env_uav_bs_fas.py          # UAV-BS-FAS 环境模型
+├── td3.py                     # Twin-TD3 智能体
+├── ddpg.py                    # DDPG 智能体
+├── channel.py                 # 毫米波信道建模 (UMi)
+├── entity.py                  # 实体定义 (UAV, 用户, 窃听者, RIS)
+├── math_tool.py               # 数学工具
+├── render.py                  # 可视化
+├── data_manager.py            # 数据管理
+├── generate_plots*.py         # 绘图工具
+├── batch_train.sh / batch_eval.sh
+└── requirements.txt
 ```
 
-`plot_traj.py` is the python file to plot the final episode's UAV trajectory for the 4 benchmarks in the paper
-```shell
-# plot UAV trajectory
-python3 plot_traj.py
-```
+## 参考文献
 
-## Cite this repository
-```
-@INPROCEEDINGS{10118891,
-  author={Tham, Mau-Luen and Wong, Yi Jie and Iqbal, Amjad and Ramli, Nordin Bin and Zhu, Yongxu and Dagiuklas, Tasos},
-  booktitle={2023 IEEE Wireless Communications and Networking Conference (WCNC)}, 
-  title={Deep Reinforcement Learning for Secrecy Energy- Efficient UAV Communication with Reconfigurable Intelligent Surface}, 
-  year={2023},
-  doi={10.1109/WCNC55385.2023.10118891}}
-```
+本项目基于以下研究工作：
 
-<details>
-<summary>Star History</summary>
-  
-[![Star History Chart](https://api.star-history.com/svg?repos=yjwong1999/Twin-TD3&type=Date)](https://star-history.com/#yjwong1999/Twin-TD3&Date)
-
-</details>
+- **RIS 信道仿真**: [SimRIS Channel Simulator](https://ieeexplore.ieee.org/document/9282349) — [Python 实现](https://github.com/Brook1711/RIS_components)
+- **系统模型**: [RIS-aided mmWave UAV Communications](https://doi.org/10.1109/LWC.2021.3081464) — [代码](https://github.com/Brook1711/WCL-pulish-code)
+- **旋翼无人机能耗**: [Energy Minimization in IoT Based on Rotary-Wing UAV](https://doi.org/10.1109/LWC.2019.2916549)
+- **TD3 算法**: [PyTorch TD3](https://github.com/philtabor/Actor-Critic-Methods-Paper-To-Code/tree/master/TD3)
+- **原始框架**: [Twin-TD3 (yjwong1999)](https://github.com/yjwong1999/Twin-TD3)

@@ -1,24 +1,21 @@
-# UAV-FAS-BS: Fluid Antenna System Aided UAV Secure Communication
+# UAV-FAS-BS: 流体天线辅助无人机保密通信
 
-Reinforcement learning-based secure communication optimization for **Fluid Antenna System (FAS)** and **Reconfigurable Intelligent Surface (RIS)** assisted UAV base station scenarios.
+基于深度强化学习的 **UAV-BS-FAS（无人机基站-流体天线系统）** 保密通信联合优化。
 
-## Project Overview
+## 项目概述
 
-This project investigates **physical layer security** in UAV communication systems, where a UAV base station serves legitimate users while suppressing eavesdroppers. The system incorporates:
+本项目研究 **物理层安全** 问题：UAV基站搭载流体天线系统（FAS）和RIS，服务合法用户的同时抑制窃听者。
 
-- **Fluid Antenna System (FAS)** — flexible antenna placement for enhanced signal control
-- **Reconfigurable Intelligent Surface (RIS)** — passive beamforming to improve secrecy performance
-- **Deep Reinforcement Learning (DRL)** — joint optimization of UAV trajectory, beamforming, and antenna configuration
+系统通过联合优化 **UAV飞行轨迹、主动波束赋形、FAS天线端口选择和RIS被动波束赋形**，最大化保密能量效率（SEE）。
 
-### Implemented Algorithms
+### 已实现算法
 
-| Algorithm | Description |
-|-----------|-------------|
-| **Twin-TD3** | Twin Twin-Delayed Deep Deterministic Policy Gradient — core algorithm for joint optimization |
-| **PPO** | Proximal Policy Optimization |
-| **SAC** | Soft Actor-Critic |
-| **TD3** | Twin Delayed DDPG |
-| **DDPG** | Deep Deterministic Policy Gradient |
+| 算法 | 说明 |
+|------|------|
+| **Twin-TD3** | 双延迟深度确定性策略梯度（核心算法） |
+| **DDPG** | 深度确定性策略梯度（对比基线） |
+| **PPO** | 近端策略优化 |
+| **SAC** | 软演员-评论家 |
 
 ## Project Structure
 
@@ -108,14 +105,41 @@ bash batch_eval.sh
 python generate_plots.py
 ```
 
-## System Model
+## 系统模型
 
-The system considers a UAV base station equipped with FAS and RIS to serve legitimate users while maintaining communication security against eavesdroppers:
+```
+    ┌─────────────────────────────────────────────┐
+    │              UAV-BS-FAS (无人机)              │
+    │  ┌──────┐  ┌──────┐                         │
+    │  │  BS  │  │ FAS  │  12个流体天线端口         │
+    │  │ 4天线 │  │      │  灵活端口选择增强空间分集   │
+    │  └──┬───┘  └──┬───┘                         │
+    └─────┼─────────┼─────────────────────────────┘
+          │    ↓    │
+     直射链路    RIS反射链路
+          │    ↓    │
+    ┌─────┼────┼────┼─────┐
+    │  ┌──┴──┐│ ┌──┴──┐  │
+    │  │用户1 ││ │用户2 │  │  ← 合法用户 (相长干涉增强)
+    │  └─────┘│ └─────┘  │
+    │         │ ┌───────┐│
+    │         │ │窃听者  ││  ← 窃听者 (相消干涉抑制)
+    │         │ └───────┘│
+    └─────────┼──────────┘
+          ┌───┴───┐
+          │  RIS  │  64个反射单元 (8×8阵列)
+          │地面固定│  被动波束赋形
+          └───────┘
+```
 
-- **UAV** flies at a fixed altitude, jointly optimizing trajectory and active beamforming
-- **FAS** enables flexible antenna port selection for enhanced spatial diversity
-- **RIS** provides passive beamforming to boost legitimate signals and suppress eavesdropping
-- **DRL agents** make real-time decisions per time slot for trajectory and beamforming optimization
+| 参数 | 值 |
+|------|-----|
+| 载波频率 | 28 GHz (毫米波) |
+| BS天线 | 4 |
+| FAS端口 | 12 |
+| RIS单元 | 64 (8×8) |
+| 发射功率上限 | 30 dBm |
+| 噪声功率 | -114 dBm |
 
 ## Acknowledgement
 
