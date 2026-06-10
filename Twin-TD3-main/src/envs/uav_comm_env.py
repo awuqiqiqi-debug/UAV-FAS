@@ -88,12 +88,12 @@ class MiniSystem(object):
         self.reverse_x_y = reverse_x_y
         self.user_num = user_num
         self.attacker_num = attacker_num
-        self.border = [(-50,50), (-20,60)]  # 水平空域边界
+        self.border = [(-50,50), (-30,30)]  # UAV飞行边界: X:-50~50, Y:-30~30
         self.ris_ant_num = ris_ant_num  # RIS反射单元数量
         
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
-        store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','G_power', 'reward','UAV_movement'])
+        store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','G_power', 'reward','UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase', 'FAS_active_port'])
         
         # 初始化 UAV-BS-FAS 实体
         self.UAV_BS_FAS = UAV_BS_FAS(
@@ -218,6 +218,10 @@ class MiniSystem(object):
             self.user_list[0].update_coordinate(0.2, -1/2 * math.pi)
             self.user_list[1].update_coordinate(0.2, -1/2 * math.pi)
 
+        # 保存当前动作供奖励函数使用
+        self._last_action_0 = action_0
+        self._last_action_1 = action_1
+
         # 更新 UAV-BS-FAS 位置
         if self.if_movements:
             move_x = action_0 * self.UAV_BS_FAS.max_movement_per_time_slot
@@ -282,6 +286,14 @@ class MiniSystem(object):
             jam_expanded = np.tile(jam_phases, self.RIS.ant_num // ris_half + 1)[:self.RIS.ant_num]
             self.RIS.Phi_jam = np.asmatrix(np.diag(np.exp(1j * jam_expanded * np.pi)), dtype=complex)
 
+        # FAS端口选择：启发式 + RL微调
+        if len(self.attacker_list) > 0:
+            # 从FAS波束动作中提取端口选择信号 (第一个实部)
+            fas_port_signal = float(np.real(fas_beam_action[0])) if len(fas_beam_action) > 0 else 0
+            self.UAV_BS_FAS.fas_port_select_with_rl(
+                fas_port_signal,
+                self.RIS.coordinate, self.attacker_list[0].coordinate)
+
         # 生成人工噪声向量（RIS本地生成，用于干扰窃听者）
         # AN功率与RIS放大增益相关
         self.an_power = dB_to_normal(-114) * 1e-3  # 基础噪声功率(mW)
@@ -296,72 +308,147 @@ class MiniSystem(object):
         # 获取新状态
         new_state = self.observe()
         
-        # 获取奖励
+        # 获取奖励 (已在reward()中包含能耗惩罚和边界检查)
         reward = self.reward()
 
-        # SEE 奖励设计: 能耗惩罚（固定权重）
-        if self.reward_design == 'see':
-            energy = get_energy_consumption(v_t)
-            # 归一化能耗: 0=最大速度(最低能耗), 1=悬停(最高能耗)
-            energy_norm = (energy - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
-            # 固定能耗惩罚: 每步最多-0.5，不再放大
-            energy_penalty = -0.5 * energy_norm
-            reward += energy_penalty
-
-        # 边界惩罚
+        # 边界检查 (轻度惩罚, 不覆盖奖励)
         done = False
         x, y = self.UAV_BS_FAS.coordinate[0:2]
         if x < self.border[0][0] or x > self.border[0][1]:
             done = True
-            reward = -2.0
+            reward -= 0.3  # 轻度边界惩罚
         if y < self.border[1][0] or y > self.border[1][1]:
             done = True
-            reward = -2.0
+            reward -= 0.3  # 轻度边界惩罚
         
         self.data_manager.store_data([reward],'reward')
+
+        # 存储RIS相位数据
+        if self.if_with_FAS:
+            # RIS信号反射相位 (归一化到[-1,1])
+            signal_phase = np.angle(np.diag(np.asarray(self.RIS.Phi_signal))).tolist()
+            self.data_manager.store_data([np.mean(signal_phase)/math.pi], 'RIS_signal_phase')
+            # RIS干扰相位 (归一化到[-1,1])
+            jam_phase = np.angle(np.diag(np.asarray(self.RIS.Phi_jam))).tolist()
+            self.data_manager.store_data([np.mean(jam_phase)/math.pi], 'RIS_jam_phase')
+            # FAS端口号
+            self.data_manager.store_data([self.UAV_BS_FAS.fas_active_port], 'FAS_active_port')
+
         return new_state, reward, done, []
 
     def reward(self):
-        """计算奖励 - 归一化设计
-        奖励范围: [-2, 12]
+        """计算奖励 - 安全效益为主, tanh归一化到(-1,1)
+        r = tanh(R_sec + 0.15*R_fas + 0.15*R_ris + 0.05*R_spatial - p_m - 2*p_r - p_e)
         """
-        reward = 0
+        import math
 
-        # 功率惩罚: 固定-1
-        P = np.trace(self.UAV_BS_FAS.G * self.UAV_BS_FAS.G.conj().T)
-        if abs(P) > abs(self.UAV_BS_FAS.G_Pmax):
-            return -1.0
-
-        # ========== 位置奖励 [0, 10] ==========
-        uav_pos = np.array(self.UAV_BS_FAS.coordinate[:2])
-        ris_pos = np.array(self.RIS.coordinate[:2])
-        dist_to_ris = np.linalg.norm(uav_pos - ris_pos)
-
-        # 归一化位置奖励: 距离0m→10分, 距离50m→0分
-        position_reward = max(0, 10.0 * (1.0 - dist_to_ris / 50.0))
-        reward += position_reward
-
-        # ========== 容量奖励 [0, 2] ==========
-        total_secure = 0
-        total_capacity = 0
-        total_attacker_cap = 0
-
+        # === 1. 保密速率 SSR (主目标, 兼顾两个用户) ===
+        total_secrecy = 0
+        user_secrecies = []
         for user in self.user_list:
-            total_secure += max(user.secure_capacity, 0)
-            total_capacity += user.capacity
+            secrecy_k = max(0, user.capacity - max(self.eavesdrop_capacity_array[:, user.index]))
+            total_secrecy += secrecy_k
+            user_secrecies.append(secrecy_k)
 
-        for attacker in self.attacker_list:
-            total_attacker_cap += np.mean(attacker.capacity)
+        # 均衡性惩罚: 惩罚两个用户安全容量差距过大
+        balance_penalty = 0
+        if len(user_secrecies) >= 2:
+            sec_diff = abs(user_secrecies[0] - user_secrecies[1])
+            sec_avg = np.mean(user_secrecies) + 1e-10
+            balance_penalty = 0.3 * (sec_diff / sec_avg)  # 差距越大惩罚越重
 
-        # 安全容量奖励 [0, 1]
-        reward += min(total_secure, 1.0)
+        # === 2. FAS空间选择性 ===
+        R_fas = 0
+        if len(self.attacker_list) > 0:
+            g_ris, _ = self.UAV_BS_FAS.get_channel_gain(
+                self.UAV_BS_FAS.fas_active_port, self.RIS.coordinate)
+            g_eve, _ = self.UAV_BS_FAS.get_channel_gain(
+                self.UAV_BS_FAS.fas_active_port, self.attacker_list[0].coordinate)
+            if g_ris > 0:
+                R_fas = max(0, (g_ris - g_eve) / (g_ris + 1e-10))
 
-        # 用户容量奖励 [0, 1]
-        reward += min(total_capacity, 1.0)
+        # === 3. RIS干扰效率 ===
+        R_ris = 0
+        if self.if_with_FAS and len(self.attacker_list) > 0:
+            h_rp = self.h_R_p[0].channel_matrix
+            h_rk0 = self.h_R_k[0].channel_matrix
+            # 使用Phi_jam而非theta_J
+            Phi_jam_diag = np.diag(np.asarray(self.RIS.Phi_jam))
+            jam_phase = np.angle(h_rp.H * Phi_jam_diag)
+            eve_phase = np.angle(h_rp.H)
+            phase_diff = np.mean(np.abs(jam_phase - eve_phase))
+            R_ris = max(0, math.cos(phase_diff))
+            leak_phase = np.angle(h_rk0.H * Phi_jam_diag)
+            user_phase = np.angle(h_rk0.H)
+            leak_diff = np.mean(np.abs(leak_phase - user_phase))
+            R_ris -= 0.3 * max(0, math.cos(leak_diff))
 
-        # 窃听者惩罚 [-1, 0]
-        reward -= min(total_attacker_cap, 1.0)
+        # === 4. 空间位置 + 速度引导 ===
+        user_positions = np.array([u.coordinate[:2] for u in self.user_list])
+        midpoint = np.mean(user_positions, axis=0)
+        uav_pos = np.array(self.UAV_BS_FAS.coordinate[:2])
+        dist_to_mid = np.linalg.norm(uav_pos - midpoint)
+        R_spatial = 0.2 * max(0, 1 - dist_to_mid / 50)
 
+        # 速度引导: 朝用户中点方向移动得分
+        R_velocity = 0
+        if dist_to_mid > 1:  # 距离>1m才计算速度奖励
+            direction_to_mid = (midpoint - uav_pos) / (dist_to_mid + 1e-10)
+            # 当前速度方向 (从上一步到当前步)
+            prev_pos = getattr(self.UAV_BS_FAS, 'prev_coordinate', uav_pos)
+            velocity = uav_pos - prev_pos
+            speed = np.linalg.norm(velocity)
+            if speed > 0.01:  # 有移动
+                velocity_dir = velocity / speed
+                # cos(速度方向, 目标方向): 1=完美对准, 0=垂直, -1=反向
+                cos_angle = np.dot(velocity_dir, direction_to_mid)
+                R_velocity = 0.1 * max(0, cos_angle)
+            self.UAV_BS_FAS.prev_coordinate = uav_pos.copy()
+
+        # 动作多样性: 惩罚连续相同方向移动
+        R_diversity = 0
+        prev_action = getattr(self.UAV_BS_FAS, 'prev_action', None)
+        curr_action = np.array([getattr(self, '_last_action_0', 0),
+                                getattr(self, '_last_action_1', 0)])
+        if prev_action is not None:
+            action_diff = np.linalg.norm(curr_action - prev_action)
+            # 动作变化越大得分越高, 鼓励探索
+            R_diversity = 0.1 * min(1.0, action_diff)
+        self.UAV_BS_FAS.prev_action = curr_action.copy()
+
+        # === 5. 功率约束惩罚 ===
+        P = np.trace(self.UAV_BS_FAS.G * self.UAV_BS_FAS.G.conj().T)
+        p_m = max(0, abs(P) - abs(self.UAV_BS_FAS.G_Pmax)) / (abs(self.UAV_BS_FAS.G_Pmax) + 1e-10)
+
+        # === 6. 最低安全速率惩罚 ===
+        R_th = 0.01
+        p_r = 0
+        for user in self.user_list:
+            secrecy_k = max(0, user.capacity - max(self.eavesdrop_capacity_array[:, user.index]))
+            if secrecy_k < R_th:
+                p_r += (R_th - secrecy_k) / R_th
+
+        # === 7. 能耗惩罚 ===
+        v_t = getattr(self.UAV_BS_FAS, 'v_t', 0)
+        E_p = get_energy_consumption(v_t)
+        E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
+        E_p_norm = max(0, min(1, E_p_norm))
+        lambda_e = 0.1 if total_secrecy < 0.1 else 0.3
+        p_e = lambda_e * max(0, total_secrecy) * E_p_norm
+
+        # === 组合奖励 ===
+        raw_reward = (total_secrecy                      # 主目标: 保密速率
+                      + 0.15 * R_fas                     # FAS辅助安全
+                      + 0.15 * R_ris                     # RIS辅助安全
+                      + 0.4 * R_spatial                  # 位置引导
+                      + 0.2 * R_velocity                 # 速度引导
+                      + 0.1 * R_diversity                # 动作多样性
+                      - balance_penalty                  # 均衡性惩罚
+                      - p_m                              # 功率约束
+                      - 2.0 * p_r                        # 最低安全速率
+                      - p_e)                             # 能耗惩罚
+
+        reward = math.tanh(raw_reward)
         return reward
     
     def observe(self):
@@ -581,15 +668,18 @@ class MiniSystem(object):
 
     def get_uav_local_state_dim(self):
         """获取无人机本地局部状态维度 (Agent 2)
-        包含：UAV坐标(3) + 用户位置(2*3=6) = 9维
+        包含：UAV坐标(3) + 用户位置(K*3) + RIS位置(3) + 窃听者位置(3)
         """
-        return 3 + self.user_num * 3  # 9维
+        return 3 + self.user_num * 3 + 3 + 3  # 15维
 
     def observe_uav_local(self):
         """获取无人机本地局部状态观测 (Agent 2)
         包含：
         1. UAV当前位置坐标 (3维)
         2. 所有用户位置坐标 (K*3维)
+        3. RIS位置 (3维)
+        4. 窃听者位置 (3维)
+        总计: 3 + K*3 + 3 + 3 = 15维
         """
         state = []
 
@@ -599,5 +689,12 @@ class MiniSystem(object):
         # 用户位置 (K*3维)
         for user in self.user_list:
             state.extend(list(user.coordinate))
+
+        # RIS位置 (3维)
+        state.extend(list(self.RIS.coordinate))
+
+        # 窃听者位置 (3维)
+        for attacker in self.attacker_list:
+            state.extend(list(attacker.coordinate))
 
         return state

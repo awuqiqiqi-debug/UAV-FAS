@@ -2,10 +2,17 @@
 import re, json, scipy.io as sio, numpy as np
 
 # ========== 数据准备 ==========
-log_path = r'C:\Users\红\AppData\Local\Temp\claude\c--Users---Desktop-0606-------------------------\a4b5dd69-4484-41dd-8084-0389d1ef1403\tasks\bne1d1i2a.output'
+log_path = r'C:\Users\红\AppData\Local\Temp\claude\c--Users---Desktop-0606-------------------------\a4b5dd69-4484-41dd-8084-0389d1ef1403\tasks\bzqzj2zbe.output'
 episodes, scores = [], []
 with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
     for line in f:
+        # 新格式: ep:    0 | reward:  408.444 | avg10:  408.444 | cap: 0.3514 | avg_cap10: 0.3514
+        m = re.search(r'ep:\s+(\d+)\s+\|\s+reward:\s+([\d\.\-]+)', line)
+        if m:
+            episodes.append(int(m.group(1)))
+            scores.append(float(m.group(2)))
+            continue
+        # 旧格式兼容
         m = re.search(r'ep_num:\s+(\d+)\s+ep_score:\s+([\d\.\-]+)', line)
         if m:
             episodes.append(int(m.group(1)))
@@ -15,8 +22,8 @@ def moving_avg(data, w=20):
     return [float(np.mean(data[max(0,i-w+1):i+1])) for i in range(len(data))]
 ma_scores = moving_avg(scores)
 
-mat_dir = 'data/storage/scratch/td3_see_1000'
-selected_eps = [0, 50, 200, 500, 999]
+mat_dir = 'data/storage/uav_bs_fas/scratch/td3_see'
+selected_eps = [0, 200, 500, 700, 999]
 episode_data = {}
 for ep in selected_eps:
     try:
@@ -66,23 +73,27 @@ for ep in selected_eps:
             'u0': uc[:,0].tolist(), 'u1': uc[:,1].tolist(),
             'a0': ac[:,0].tolist(), 'a1': ac[:,1].tolist()
         }
-for ep in [200, 500, 999]:
+for ep in [200, 700, 999]:
     if ep in episode_data:
         sc = np.array(episode_data[ep]['secure_capacity'])
         sec_data[ep] = {'u0': sc[:,0].tolist(), 'u1': sc[:,1].tolist()}
-for ep in [500, 999]:
+for ep in selected_eps:
     if ep in episode_data:
-        ris = np.array(episode_data[ep]['RIS_scheduling']).flatten()
-        fas = np.array(episode_data[ep]['FAS_port']).flatten()
-        ris_data[ep] = {'ris': ris.tolist(), 'fas': fas.tolist()}
+        data = {}
+        if 'RIS_signal_phase' in episode_data[ep]:
+            data['ris_signal'] = np.array(episode_data[ep]['RIS_signal_phase']).flatten().tolist()
+        if 'RIS_jam_phase' in episode_data[ep]:
+            data['ris_jam'] = np.array(episode_data[ep]['RIS_jam_phase']).flatten().tolist()
+        if 'FAS_active_port' in episode_data[ep]:
+            data['fas_port'] = np.array(episode_data[ep]['FAS_active_port']).flatten().tolist()
+        if data:
+            ris_data[ep] = data
 
 # 摘要表
 table_rows = []
 for key, label, col in [
     ('secure_capacity', '平均安全容量 (用户0)', 0),
     ('user_capacity', '平均用户容量 (用户0)', 0),
-    ('RIS_scheduling', 'RIS调度比例', None),
-    ('FAS_port', 'FAS端口号', None),
 ]:
     vals = []
     for ep in [0, 200, 500, 999]:
@@ -182,11 +193,11 @@ body{font-family:'Noto Sans SC','Times New Roman',serif;background:#fff;color:#2
   <div class="fig-caption">Fig.4 &nbsp; Secrecy capacity over time slots.</div>
 </div>
 
-<!-- 图5: RIS调度 -->
+<!-- 图5: RIS相位 + FAS端口 -->
 <div class="figure">
-  <div class="fig-label">图5 &nbsp; RIS调度比例与FAS端口选择</div>
+  <div class="fig-label">图5 &nbsp; RIS相位与FAS端口选择</div>
   <div class="grid2" id="ris_container"></div>
-  <div class="fig-caption">Fig.5 &nbsp; RIS element scheduling rate and FAS port index over time slots.</div>
+  <div class="fig-caption">Fig.5 &nbsp; RIS phase (signal reflection + jamming) and FAS active port index.</div>
 </div>
 
 <!-- 表1: 摘要 -->
@@ -280,10 +291,10 @@ trajEps.forEach(function(ep) {
   Plotly.newPlot(div.id, traces, Object.assign({}, layout_base, {
     height: 340,
     title: {text: '(a) Episode ' + ep, font: {size: 13, color: '#000'}},
-    xaxis: {title: {text: 'X (m)', font: {size: 12}}, range: [-5, 55],
-             tickfont: {size: 10}, gridcolor: '#eee', dtick: 10},
-    yaxis: {title: {text: 'Y (m)', font: {size: 12}}, range: [-10, 55],
-             tickfont: {size: 10}, gridcolor: '#eee', scaleanchor: 'x', scaleratio: 1},
+    xaxis: {title: {text: 'X (m)', font: {size: 12}}, range: [-80, 80],
+             tickfont: {size: 10}, gridcolor: '#eee', dtick: 20},
+    yaxis: {title: {text: 'Y (m)', font: {size: 12}}, range: [-60, 60],
+             tickfont: {size: 10}, gridcolor: '#eee', dtick: 20},
     shapes: [{type: 'rect', x0: -25, x1: 25, y0: 0, y1: 50,
               line: {color: '#999', width: 1, dash: 'dot'}, fillcolor: 'rgba(0,0,0,0)'}],
     legend: {x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: {size: 9}}
@@ -342,8 +353,8 @@ secEps.forEach(function(ep) {
   }));
 });
 
-// ====== 图5: RIS调度 ======
-var risEps = [500, 999];
+// ====== 图5: RIS相位 + FAS端口 ======
+var risEps = Object.keys(risData).map(Number);
 var risContainer = document.getElementById('ris_container');
 risEps.forEach(function(ep) {
   if (!risData[ep]) return;
@@ -351,22 +362,25 @@ risEps.forEach(function(ep) {
   div.className = 'chart';
   div.id = 'ris_' + ep;
   risContainer.appendChild(div);
+  var traces = [];
   var x = [];
-  for (var i = 0; i < 100; i++) x.push(i);
-  Plotly.newPlot(div.id, [
-    {x: x, y: risData[ep].ris, name: 'RIS调度比例', yaxis: 'y',
-     line: {color: C.magenta, width: 1.5}},
-    {x: x, y: risData[ep].fas, name: 'FAS端口号', yaxis: 'y2',
-     line: {color: C.orange, width: 1.5}}
-  ], Object.assign({}, layout_base, {
-    title: {text: '(d) Episode ' + ep, font: {size: 13, color: '#000'}},
-    xaxis: {title: {text: '时隙 (Time Slot)', font: {size: 12}},
-             tickfont: {size: 10}, gridcolor: '#eee'},
-    yaxis: {title: {text: 'RIS调度比例', font: {size: 12}},
-             tickfont: {size: 10}, gridcolor: '#eee', range: [0, 1.1]},
-    yaxis2: {title: {text: 'FAS端口号', font: {size: 12}, font: {color: C.orange}},
-             tickfont: {size: 10, color: C.orange}, overlaying: 'y', side: 'right'},
-    legend: {x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: {size: 10}}
+  for (var i = 0; i < (risData[ep].ris_signal || []).length; i++) x.push(i);
+  if (risData[ep].ris_signal) {
+    traces.push({x: x, y: risData[ep].ris_signal, name: 'RIS信号相位', line: {color: C.cyan, width: 1.5}});
+  }
+  if (risData[ep].ris_jam) {
+    traces.push({x: x, y: risData[ep].ris_jam, name: 'RIS干扰相位', line: {color: C.red, width: 1.5, dash: 'dash'}});
+  }
+  if (risData[ep].fas_port) {
+    traces.push({x: x, y: risData[ep].fas_port, name: 'FAS端口号', yaxis: 'y2', line: {color: C.orange, width: 1.5}});
+  }
+  Plotly.newPlot(div.id, traces, Object.assign({}, layout_base, {
+    title: {text: '(e) Episode ' + ep, font: {size: 13, color: '#000'}},
+    xaxis: {title: {text: '时隙 (Time Slot)', font: {size: 12}}, tickfont: {size: 10}, gridcolor: '#eee'},
+    yaxis: {title: {text: 'RIS相位 (归一化)', font: {size: 12}}, tickfont: {size: 10}, gridcolor: '#eee', range: [-1.2, 1.2]},
+    yaxis2: {title: {text: 'FAS端口号', font: {size: 12}, font: {color: C.orange}}, tickfont: {size: 10, color: C.orange}, overlaying: 'y', side: 'right'},
+    legend: {x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: {size: 10}},
+    height: 380
   }));
 });
 </script>
@@ -405,7 +419,7 @@ for label, vals in table_rows:
     rows_html += f'<tr><td style="text-align:left;font-weight:700">{label}</td>{cells}</tr>\n'
 html = html.replace('__TABLE_ROWS__', rows_html)
 
-out_path = 'data/storage/scratch/td3_see_1000/training_report.html'
+out_path = 'data/storage/uav_bs_fas/scratch/td3_see/training_report.html'
 with open(out_path, 'w', encoding='utf-8-sig') as f:
     f.write(html)
 print(f'报告已生成: {out_path}')

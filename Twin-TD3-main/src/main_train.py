@@ -103,7 +103,7 @@ agent_1_param_dic["layer4_size"] = 256
 agent_2_param_dic = {}
 agent_2_param_dic["alpha"] = 0.0001  # Actor学习率
 agent_2_param_dic["beta"] = 0.001   # Critic学习率
-agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：9维本地信息
+agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：15维本地信息
 agent_2_param_dic["tau"] = 0.005    # soft update
 agent_2_param_dic["batch_size"] = 80  # 批次大小
 agent_2_param_dic["n_actions"] = 3  # 输出3维：三维空间位移[dx,dy,dz]
@@ -252,9 +252,9 @@ while episode_cnt < total_episodes:
     while step_cnt < step_num:
         step_cnt += 1
 
-        # 自适应噪声: 线性衰减
-        noise_scale_1 = agent_1_param_dic["action_noise_factor"] * max(0.01, 1 - episode_cnt / episode_num)
-        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.01, 1 - episode_cnt / episode_num)
+        # 自适应噪声: 缓慢衰减，保持探索
+        noise_scale_1 = agent_1_param_dic["action_noise_factor"] * max(0.1, 1 - episode_cnt / episode_num)
+        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.1, 1 - episode_cnt / episode_num)
 
         action_1 = agent_1.choose_action(observersion_1, greedy=noise_scale_1)
         action_2 = agent_2.choose_action(observersion_2, greedy=noise_scale_2)
