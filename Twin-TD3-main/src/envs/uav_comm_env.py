@@ -88,7 +88,7 @@ class MiniSystem(object):
         self.reverse_x_y = reverse_x_y
         self.user_num = user_num
         self.attacker_num = attacker_num
-        self.border = [(-50,50), (-30,30)]  # UAV飞行边界: X:-50~50, Y:-30~30
+        self.border = [(-50,50), (-50,50)]  # UAV飞行边界: X:-50~50, Y:-50~50
         self.ris_ant_num = ris_ant_num  # RIS反射单元数量
         
         # 初始化数据管理器
@@ -222,12 +222,31 @@ class MiniSystem(object):
         self._last_action_0 = action_0
         self._last_action_1 = action_1
 
-        # 更新 UAV-BS-FAS 位置
+        # ========== 速度约束运动模型 ==========
+        # v_max=1.0m/s, dt=0.1s, 单步最大位移=0.1m
+        V_MAX = 1.0   # 最大水平速度 (m/s)
+        DT = 0.1      # 仿真步长 (s)
+
         if self.if_movements:
-            move_x = action_0 * self.UAV_BS_FAS.max_movement_per_time_slot
-            move_y = action_1 * self.UAV_BS_FAS.max_movement_per_time_slot
-            move_z = action_2 * self.UAV_BS_FAS.max_movement_per_time_slot  # z轴移动
-            v_t = (move_x ** 2 + move_y ** 2 + move_z ** 2) ** 0.5
+            # Actor输出速度 [-1,1] → 实际速度 [-v_max, v_max]
+            vx = np.clip(action_0, -1, 1) * V_MAX
+            vy = np.clip(action_1, -1, 1) * V_MAX
+
+            # 速度 → 位移
+            move_x = vx * DT
+            move_y = vy * DT
+
+            # 边界软约束：接近边界时减速
+            x, y = self.UAV_BS_FAS.coordinate[0], self.UAV_BS_FAS.coordinate[1]
+            border_margin = 5  # 边界缓冲区
+            if x > self.border[0][1] - border_margin:
+                move_x = min(move_x, 0)
+            elif x < self.border[0][0] + border_margin:
+                move_x = max(move_x, 0)
+            if y > self.border[1][1] - border_margin:
+                move_y = min(move_y, 0)
+            elif y < self.border[1][0] + border_margin:
+                move_y = max(move_y, 0)
 
             if self.reverse_x_y[0]:
                 move_x = -move_x
@@ -236,8 +255,9 @@ class MiniSystem(object):
 
             self.UAV_BS_FAS.coordinate[0] += move_x
             self.UAV_BS_FAS.coordinate[1] += move_y
-            self.UAV_BS_FAS.coordinate[2] += move_z  # 更新z坐标
-            self.data_manager.store_data([move_x, move_y, move_z], 'UAV_movement')
+            self.UAV_BS_FAS.coordinate[2] = 50.0  # 固定高度50m
+            v_t = math.sqrt(move_x ** 2 + move_y ** 2)
+            self.data_manager.store_data([move_x, move_y, 0], 'UAV_movement')
         else:
             set_pos_x = map_to(set_pos_x, (-1, 1), self.border[0])
             set_pos_y = map_to(set_pos_y, (-1, 1), self.border[1])

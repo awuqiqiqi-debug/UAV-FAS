@@ -106,7 +106,7 @@ agent_2_param_dic["beta"] = 0.001   # Critic学习率
 agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：15维本地信息
 agent_2_param_dic["tau"] = 0.005    # soft update
 agent_2_param_dic["batch_size"] = 80  # 批次大小
-agent_2_param_dic["n_actions"] = 3  # 输出3维：三维空间位移[dx,dy,dz]
+agent_2_param_dic["n_actions"] = 2  # 输出2维：水平速度[vx,vy] (高度固定50m)
 agent_2_param_dic["action_noise_factor"] = 0.1  # 初始噪声
 agent_2_param_dic["memory_max_size"] = 40000  # 经验回放池容量
 agent_2_param_dic["agent_name"] = "UAV"
@@ -278,14 +278,13 @@ while episode_cnt < total_episodes:
         # 执行动作
         if system.if_with_FAS:
             new_state_1, reward, done, info = system.step(
-                action_0=action_2[0],
-                action_1=action_2[1],
-                action_2=action_2[2],  # z轴移动
+                action_0=action_2[0],  # vx速度
+                action_1=action_2[1],  # vy速度
+                action_2=0,  # 高度固定50m
                 G=action_1[0:24],  # 24维波束 (16 BS + 8 FAS)
                 Phi=action_1[24:48],  # 24维RIS相位
                 set_pos_x=action_2[0],
-                set_pos_y=action_2[1],
-                set_pos_z=action_2[2]
+                set_pos_y=action_2[1]
             )
             new_state_2 = system.observe_uav_local()  # 获取无人机本地局部状态
         else:
