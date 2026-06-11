@@ -456,17 +456,21 @@ class MiniSystem(object):
         lambda_e = 0.1 if total_secrecy < 0.1 else 0.3
         p_e = lambda_e * max(0, total_secrecy) * E_p_norm
 
-        # === 组合奖励 ===
-        raw_reward = (total_secrecy                      # 主目标: 保密速率
-                      + 0.15 * R_fas                     # FAS辅助安全
-                      + 0.15 * R_ris                     # RIS辅助安全
-                      + 0.4 * R_spatial                  # 位置引导
-                      + 0.2 * R_velocity                 # 速度引导
-                      + 0.1 * R_diversity                # 动作多样性
-                      - balance_penalty                  # 均衡性惩罚
-                      - p_m                              # 功率约束
-                      - 2.0 * p_r                        # 最低安全速率
-                      - p_e)                             # 能耗惩罚
+        # === 组合奖励 (乘积形式，自然惩罚不均衡) ===
+        # 使用 min + 几何平均 组合：兼顾下限和均衡性
+        sec_min = min(user_secrecies) if user_secrecies else 0
+        sec_geo = math.sqrt(max(0, user_secrecies[0] * user_secrecies[1])) if len(user_secrecies) >= 2 else sec_min
+        sec_combined = sec_min + 0.5 * sec_geo  # 组合保密速率
+
+        raw_reward = (sec_combined * 2.0              # 乘积形式保密速率
+                      + 0.15 * R_fas                 # FAS辅助安全
+                      + 0.15 * R_ris                 # RIS辅助安全
+                      + 0.4 * R_spatial              # 位置引导
+                      + 0.2 * R_velocity             # 速度引导
+                      + 0.1 * R_diversity            # 动作多样性
+                      - p_m                          # 功率约束
+                      - 2.0 * p_r                    # 最低安全速率
+                      - p_e)                         # 能耗惩罚
 
         reward = math.tanh(raw_reward)
         return reward
@@ -689,8 +693,9 @@ class MiniSystem(object):
     def get_uav_local_state_dim(self):
         """获取无人机本地局部状态维度 (Agent 2)
         包含：UAV坐标(3) + 用户位置(K*3) + RIS位置(3) + 窃听者位置(3)
+              + 用户信道容量(K) + 窃听者信道容量(1) = 18维
         """
-        return 3 + self.user_num * 3 + 3 + 3  # 15维
+        return 3 + self.user_num * 3 + 3 + 3 + self.user_num + 1  # 18维
 
     def observe_uav_local(self):
         """获取无人机本地局部状态观测 (Agent 2)
@@ -699,7 +704,9 @@ class MiniSystem(object):
         2. 所有用户位置坐标 (K*3维)
         3. RIS位置 (3维)
         4. 窃听者位置 (3维)
-        总计: 3 + K*3 + 3 + 3 = 15维
+        5. 用户信道容量 (K维) ← 新增
+        6. 窃听者信道容量 (1维) ← 新增
+        总计: 18维
         """
         state = []
 
@@ -716,5 +723,15 @@ class MiniSystem(object):
         # 窃听者位置 (3维)
         for attacker in self.attacker_list:
             state.extend(list(attacker.coordinate))
+
+        # 用户信道容量 (K维) - Agent 2需要知道当前位置的信道质量
+        for user in self.user_list:
+            state.append(float(user.capacity))
+
+        # 窃听者信道容量 (1维) - Agent 2需要知道窃听者的信道质量
+        if len(self.attacker_list) > 0:
+            state.append(float(np.mean(self.attacker_list[0].capacity)))
+        else:
+            state.append(0.0)
 
         return state

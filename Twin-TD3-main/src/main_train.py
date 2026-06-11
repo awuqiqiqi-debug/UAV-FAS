@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--drl', type = str, required = True, default='td3', help="which drl algo would you like to choose ['ddpg', 'td3']")
 parser.add_argument('--reward', type = str, required = True, default='see', help="which reward would you like to implement ['ssr', 'see']")
 parser.add_argument('--seeds', type = int, required = False, default=None,  nargs='+', help="what seed(s) would you like to use for DRL 1 and 2")
-parser.add_argument('--ep-num', type = int, required = False, default=350, help="how many episodes do you want to train your DRL")
+parser.add_argument('--ep-num', type = int, required = False, default=2000, help="how many episodes do you want to train your DRL")
 parser.add_argument('--trained-uav', default=False, action='store_true', help='use trained uav instead of retraining')
 parser.add_argument('--load-path', type = str, required = False, default=None, help="path to existing training directory to continue training")
 

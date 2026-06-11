@@ -295,7 +295,7 @@ trajEps.forEach(function(ep) {
              tickfont: {size: 10}, gridcolor: '#eee', dtick: 20},
     yaxis: {title: {text: 'Y (m)', font: {size: 12}}, range: [-60, 60],
              tickfont: {size: 10}, gridcolor: '#eee', dtick: 20},
-    shapes: [{type: 'rect', x0: -25, x1: 25, y0: 0, y1: 50,
+    shapes: [{type: 'rect', x0: -50, x1: 50, y0: -50, y1: 50,
               line: {color: '#999', width: 1, dash: 'dot'}, fillcolor: 'rgba(0,0,0,0)'}],
     legend: {x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: {size: 9}}
   }));
