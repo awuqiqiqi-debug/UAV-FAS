@@ -58,6 +58,7 @@
 |------|------|
 | **Twin-TD3** | 双延迟深度确定性策略梯度（核心算法） |
 | **DDPG** | 深度确定性策略梯度（对比基线） |
+| **SAC** | 软演员-评论家（最大熵RL，自动温度调节，天然探索） |
 
 ## 优化目标
 
@@ -85,6 +86,12 @@ python src/main_train.py --drl td3 --reward see
 
 # DDPG 对比基线
 python src/main_train.py --drl ddpg --reward ssr
+
+# SAC 训练（最大熵RL，天然探索，无需额外噪声）
+python src/main_train_sac.py --reward ssr --ep-num 2000
+
+# 速度约束 TD3（Actor输出速度vx/vy，环境内转换为位移）
+python src/main_train_td3_velocity.py --reward ssr --ep-num 2000
 
 # 指定训练轮数
 python src/main_train.py --drl td3 --reward ssr --ep-num 500
@@ -166,7 +173,8 @@ Twin-TD3-main/
 ├── src/                        # 核心代码
 │   ├── agents/                 # DRL 智能体
 │   │   ├── td3_agent.py        # Twin-TD3 智能体
-│   │   └── ddpg_agent.py       # DDPG 智能体
+│   │   ├── ddpg_agent.py       # DDPG 智能体
+│   │   └── sac_agent.py        # SAC 智能体
 │   ├── networks/               # 神经网络结构
 │   │   └── actor_critic.py     # Actor-Critic 网络定义
 │   ├── envs/                   # 环境模型
@@ -181,7 +189,9 @@ Twin-TD3-main/
 │   │   └── renderer.py         # 3D 可视化
 │   ├── tests/                  # 测试
 │   │   └── test_uav_comm.py    # 环境单元测试
-│   └── main_train.py           # 主训练脚本入口
+│   ├── main_train.py           # TD3 主训练脚本
+│   ├── main_train_sac.py       # SAC 训练脚本
+│   └── main_train_td3_velocity.py  # 速度约束 TD3 训练
 ├── scripts/                    # 辅助脚本
 │   ├── generate_plots.py       # 统一绘图工具 (--path 参数化)
 │   ├── load_and_plot.py        # 训练结果分析
