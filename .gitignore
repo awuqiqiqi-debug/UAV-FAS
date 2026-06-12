@@ -36,6 +36,10 @@ training_report.html
 # ==================== 训练数据目录 ====================
 # Twin-TD3 数据存储目录（包含训练运行输出、仿真数据、图表）
 Twin-TD3-main/data/
+Twin-TD3-main/src/data/storage/
+
+# 训练产出目录
+Twin-TD3-main/runs/
 
 # ==================== Python 缓存 ====================
 __pycache__/
@@ -70,6 +74,8 @@ env/
 *.zip
 *.tar.gz
 *.rar
+training_dashboard.html
+资料/
 
 # 作业与文献（个人学术材料）
 作业/

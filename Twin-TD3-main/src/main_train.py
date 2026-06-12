@@ -58,12 +58,11 @@ if LOAD_PATH is not None and os.path.exists(LOAD_PATH):
 
 project_name = f'uav_bs_fas/{DRL_ALGO}_{REWARD_DESIGN}' if TRAINED_UAV else f'uav_bs_fas/scratch/{DRL_ALGO}_{REWARD_DESIGN}'
 
-# 使用 UAV-BS-FAS 一体化系统
-# 无人机搭载：基站(BS) + FAS流体天线（发射天线）
+# 使用 UAV-FAS 一体化系统
+# 无人机搭载：FAS流体天线（唯一发射天线，支持主动波束成形）
 # 地面固定：RIS反射单元阵列（64单元，8x8）
 system = MiniSystem(
     user_num=2,
-    bs_ant_num=4,       # 基站天线数（搭载在无人机上）
     fas_ant_num=12,     # FAS流体天线发射单元数（搭载在无人机上）
     ris_ant_num=64,     # RIS反射单元数（地面固定，8x8 UPA）
     if_dir_link=1,
@@ -90,7 +89,7 @@ agent_1_param_dic["beta"] = 0.001   # Critic学习率
 agent_1_param_dic["input_dims"] = system.get_system_state_dim()
 agent_1_param_dic["tau"] = 0.005    # soft update
 agent_1_param_dic["batch_size"] = 80  # 批次大小
-agent_1_param_dic["n_actions"] = system.get_system_action_dim()  # 48维动作空间
+agent_1_param_dic["n_actions"] = system.get_system_action_dim()  # 38维动作空间
 agent_1_param_dic["action_noise_factor"] = 0.3  # 初始噪声
 agent_1_param_dic["memory_max_size"] = 40000  # 经验回放池容量
 agent_1_param_dic["agent_name"] = "BS_FAS"
@@ -103,11 +102,11 @@ agent_1_param_dic["layer4_size"] = 256
 agent_2_param_dic = {}
 agent_2_param_dic["alpha"] = 0.0001  # Actor学习率
 agent_2_param_dic["beta"] = 0.001   # Critic学习率
-agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：15维本地信息
+agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：18维本地信息
 agent_2_param_dic["tau"] = 0.005    # soft update
 agent_2_param_dic["batch_size"] = 80  # 批次大小
 agent_2_param_dic["n_actions"] = 2  # 输出2维：水平速度[vx,vy] (高度固定50m)
-agent_2_param_dic["action_noise_factor"] = 0.1  # 初始噪声
+agent_2_param_dic["action_noise_factor"] = 0.3  # 初始噪声
 agent_2_param_dic["memory_max_size"] = 40000  # 经验回放池容量
 agent_2_param_dic["agent_name"] = "UAV"
 agent_2_param_dic["layer1_size"] = 512
@@ -168,8 +167,6 @@ print("if_with_FAS:     "+str(system.if_with_FAS))
 meta_dic['if_with_FAS'] = system.if_with_FAS
 print("if_user_m:       "+str(system.if_move_users))
 meta_dic['if_move_users'] = system.if_move_users
-print("BS_ant_num:      "+str(system.UAV_BS_FAS.bs_ant_num))
-meta_dic['bs_ant_num'] = system.UAV_BS_FAS.bs_ant_num
 print("FAS_ant_num:     "+str(system.UAV_BS_FAS.fas_num_ports))
 meta_dic['fas_ant_num'] = system.UAV_BS_FAS.fas_num_ports
 print("if_movements:    "+str(system.if_movements))
@@ -253,51 +250,30 @@ while episode_cnt < total_episodes:
         step_cnt += 1
 
         # 自适应噪声: 缓慢衰减，保持探索
-        noise_scale_1 = agent_1_param_dic["action_noise_factor"] * max(0.1, 1 - episode_cnt / episode_num)
-        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.1, 1 - episode_cnt / episode_num)
+        noise_scale_1 = agent_1_param_dic["action_noise_factor"] * max(0.3, 1 - episode_cnt / episode_num)
+        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.3, 1 - episode_cnt / episode_num)
 
         action_1 = agent_1.choose_action(observersion_1, greedy=noise_scale_1)
         action_2 = agent_2.choose_action(observersion_2, greedy=noise_scale_2)
-        
-        if if_BS:
-            action_2[0] = 0
-            action_2[1] = 0
-            action_2[2] = 0
 
-        # 动作解析：48维 = 24维波束(G) + 24维RIS相位(Phi)
-        # 24维波束 = 16维BS波束(4×2×2) + 8维FAS波束(4×2)
-        # 24维RIS相位 = 12单元×2（信号反射+人工噪声）
+        # 动作解析：38维 = 13维FAS (12端口选择 + 1增益) + 25维RIS (1β + 24相位)
+        # G: 前12维为端口选择softmax，第13维为F增益
+        # Phi: 第1维为β，后24维为RIS相位
 
         if if_Theta_fixed:
-            action_1[24:] = np.zeros(24)  # 固定RIS相位为零
+            action_1[13:] = np.zeros(25)  # 固定RIS相位为零
 
-        if if_G_fixed:
-            action_1[0:16] = np.array([-0.0313, -0.9838, 0.3210, 1.0, -0.9786, -0.1448, 0.3518, 0.5813, -1.0, -0.2803, -0.4616, -0.6352, -0.1449, 0.7040, 0.4090, -0.8521]) * math.pow(episode_cnt / episode_num, 2) * 0.7
-
-
-        # 执行动作
-        if system.if_with_FAS:
-            new_state_1, reward, done, info = system.step(
-                action_0=action_2[0],  # vx速度
-                action_1=action_2[1],  # vy速度
-                action_2=0,  # 高度固定50m
-                G=action_1[0:24],  # 24维波束 (16 BS + 8 FAS)
-                Phi=action_1[24:48],  # 24维RIS相位
-                set_pos_x=action_2[0],
-                set_pos_y=action_2[1]
-            )
-            new_state_2 = system.observe_uav_local()  # 获取无人机本地局部状态
-        else:
-            new_state_1, reward, done, info = system.step(
-                action_0=action_2[0],
-                action_1=action_2[1],
-                action_2=action_2[2],  # z轴移动
-                G=action_1[0:16],  # 16维BS波束
-                set_pos_x=action_2[0],
-                set_pos_y=action_2[1],
-                set_pos_z=action_2[2]
-            )
-            new_state_2 = system.observe_uav_local()  # 获取无人机本地局部状态
+        # 执行动作 (FAS-only mode)
+        new_state_1, reward, done, info = system.step(
+            action_0=action_2[0],  # vx速度
+            action_1=action_2[1],  # vy速度
+            action_2=0,  # 高度固定50m
+            G=action_1[0:13],  # 13维: 12端口选择 + 1 F增益
+            Phi=action_1[13:38],  # 25维RIS: 1维放大增益β + 24维相位
+            set_pos_x=action_2[0],
+            set_pos_y=action_2[1]
+        )
+        new_state_2 = system.observe_uav_local()  # 获取无人机本地局部状态
 
         score_per_ep += reward
         
@@ -315,12 +291,13 @@ while episode_cnt < total_episodes:
             break
 
     system.data_manager.save_file(episode_cnt=episode_cnt)
-    system.reset()
 
-    # 记录训练指标
-    episode_rewards.append(score_per_ep)
+    # 记录训练指标 (必须在reset之前读取capacity)
     avg_cap = np.mean([u.capacity for u in system.user_list])
+    episode_rewards.append(score_per_ep)
     episode_capacities.append(avg_cap)
+
+    system.reset()
 
     # 打印训练进度
     if episode_cnt % 10 == 0:

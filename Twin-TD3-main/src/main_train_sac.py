@@ -25,23 +25,23 @@ LOAD_PATH = args.load_path
 
 # ========== 初始化系统 ==========
 system = MiniSystem(
-    user_num=2, ris_ant_num=4, bs_ant_num=4,
+    user_num=2, ris_ant_num=64,
     if_dir_link=1, if_with_FAS=True,
     if_move_users=True, if_movements=True,
     reverse_x_y=(False, False), if_UAV_pos_state=True,
     reward_design=REWARD_DESIGN, project_name=None, step_num=100
 )
 
-# ========== Agent 1: BS+FAS波束成形 ==========
+# ========== Agent 1: FAS波束成形 ==========
 agent_1 = SACAgent(
     alpha=3e-4, beta=3e-4,  # SAC标准学习率
     input_dims=[system.get_system_state_dim()],
     tau=0.005, env=system, batch_size=256,
     layer1_size=1024, layer2_size=768,
     layer3_size=512, layer4_size=256,
-    n_actions=48,  # 16 BS + 8 FAS + 24 RIS
+    n_actions=system.get_system_action_dim(),  # 12端口 + 1 F + 1 β + 24 RIS = 38
     max_size=1000000,
-    agent_name="BS_FAS"
+    agent_name="FAS"
 )
 
 # ========== Agent 2: UAV轨迹 ==========
@@ -149,7 +149,7 @@ while episode_cnt < EPISODE_NUM:
             # 执行动作
             new_s1, reward, done, _ = system.step(
                 action_0=a2[0], action_1=a2[1], action_2=a2[2],
-                G=list(a1[:48]), Phi=list(a1[24:48])
+                G=list(a1[:13]), Phi=list(a1[13:38])
             )
             new_s2 = system.observe_uav_local()
 

@@ -6,7 +6,7 @@
 
 ## 一、模块概述
 
-`renderer.py` 提供 UAV-BS-FAS 通信系统的实时 3D 可视化功能，基于 matplotlib 的 `mplot3d` 工具包实现。在仿真过程中实时渲染无人机、RIS、用户、窃听者的位置以及信道链路。
+`renderer.py` 提供 UAV-FAS 通信系统的实时 3D 可视化功能，基于 matplotlib 的 `mplot3d` 工具包实现。在仿真过程中实时渲染无人机（FAS发射天线）、RIS、用户、窃听者的位置以及信道链路。
 
 ---
 

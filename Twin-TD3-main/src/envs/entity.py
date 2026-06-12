@@ -81,9 +81,9 @@ class RIS(object):
         coordinate: RIS位置坐标, meters, np.array
         coor_sys_z: RIS法向量
         ant_num: RIS反射单元数量
-        Pr: RIS总功率约束 (dBm)
+        Pr: RIS总功率约束 (dBm) - 有源RIS放大功率
         P_J: 干扰功率 (dBm)
-        beta: 反射单元幅度增益 (dB)
+        beta: 反射单元幅度增益 (dB) - 有源放大增益
         sigma: 热噪声功率 (dBm)
         """
         self.type = 'RIS'
@@ -97,11 +97,15 @@ class RIS(object):
         self.coor_sys = [coor_sys_x,coor_sys_y,coor_sys_z]
         self.index = index
 
-        # 多功能RIS参数
-        self.Pr = Pr          # 总功率约束 (dBm)
+        # 多功能有源RIS参数
+        self.Pr = Pr          # 总功率约束 (dBm) - 有源RIS放大功率
         self.P_J = P_J        # 干扰功率 (dBm)
-        self.beta = beta      # 反射单元幅度增益 (dB)
+        self.beta = beta      # 反射单元幅度增益 (dB) - 有源放大增益
         self.sigma = sigma    # 热噪声功率 (dBm)
+
+        # 有源RIS放大增益 (参考ris_functions-jin-xinhaofngda.py)
+        # beta_i = sqrt(1 + 10*rand) - 每个元件的放大增益
+        self.amplification_gains = np.sqrt(1 + 10 * np.random.rand(self.ant_num))
 
         # 相位矩阵初始化
         self.Phi = np.asmatrix(np.diag(np.ones(self.ant_num, dtype=complex)), dtype=complex)  # 总相位矩阵
@@ -443,51 +447,41 @@ class RIS(object):
 
 class UAV_BS_FAS(object):
     """
-    UAV-BS-FAS Integrated Entity (波束可重构离散端口流体天线):
+    UAV-FAS Integrated Entity (流体天线发射平台):
     - UAV mobility platform (无人机移动平台)
-    - Base Station (BS) active beamforming (基站主动波束成形)
-    - FAS: 波束可重构离散端口流体天线，通过端口切换改变波束指向
+    - FAS: 流体天线系统作为唯一发射天线
 
     无人机搭载设备：
-    - 基站(BS)：4根天线(ULA)，用于主动波束成形
-    - FAS流体天线：8个离散端口(UPA)，通过端口选择优化波束方向
+    - FAS流体天线：12个离散端口(ULA)，通过端口切换改变波束指向
+    - RL直接选择最优端口，F为标量增益
 
-    核心原理：有限离散空间端口切换，改变波束指向，实现对准RIS、零陷窃听者
+    核心原理：RL从12个端口中选择最优端口，实现对准用户、零陷窃听者
     """
     def __init__(self, coordinate, index = 0, rotation = 0,
-                 bs_ant_num=4, bs_ant_type='ULA',
-                 fas_num_ports=8, fas_ant_type='ULA',
+                 fas_num_ports=12, fas_ant_type='ULA',
                  max_movement_per_time_slot = 0.5):
         """
         coordinate: UAV initial coordinate in meters, np.array
-        bs_ant_num: number of BS antennas (基站天线数)
         fas_num_ports: number of FAS discrete ports (离散端口数)
         """
         self.max_movement_per_time_slot = max_movement_per_time_slot
-        self.type = 'UAV_BS_FAS'
+        self.type = 'UAV'  # 信道模型匹配用（channel.py 中 'UAV_user'/'UAV_RIS' 等）
         self.coordinate = coordinate
         self.rotation = rotation
         self.index = index
 
-        # BS parameters (基站参数)
-        self.bs_ant_num = bs_ant_num
-        self.ant_num = bs_ant_num  # For compatibility with channel model
-        self.bs_ant_type = bs_ant_type
-        self.ant_type = bs_ant_type  # For compatibility with channel model
-        self.G = np.asmatrix(np.zeros((bs_ant_num, 1)))  # BS beamforming matrix
-        self.G_Pmax = 0
-
-        # FAS parameters (波束可重构离散端口流体天线)
-        # 核心：有限离散空间端口切换，改变波束指向
+        # FAS parameters (流体天线系统 — 唯一发射天线)
         self.fas_num_ports = fas_num_ports
+        self.ant_num = fas_num_ports  # For compatibility with channel model
         self.fas_ant_type = fas_ant_type
+        self.ant_type = fas_ant_type  # For compatibility with channel model
         # 28GHz: λ=c/f≈1.071cm, 端口间距=0.5λ≈0.00536m
         self.fas_port_spacing = 0.5 * 3e8 / 28e9  # 0.5λ = 0.00536m
         self.fas_port_local = np.array([
             [self.fas_port_spacing * i, 0.0, 0.0] for i in range(-fas_num_ports // 2, fas_num_ports // 2)
         ])  # 离散端口局部坐标（水平线性排布）
-        self.fas_active_port = 0  # 当前激活的端口索引
-        self.F = np.asmatrix(np.zeros((fas_num_ports, 1)))  # FAS发射波束成形矩阵
+        self.fas_active_port = 0  # 当前激活的端口索引（由RL选择）
+        self.F = 1.0  # FAS增益（标量，由RL控制）
         self.F_Pmax = 0
 
         # Coordinate system
@@ -497,85 +491,7 @@ class UAV_BS_FAS(object):
         """Reset UAV coordinate"""
         self.coordinate = coordinate
         self.fas_active_port = 0
-
-    def get_fas_abs_position(self, port_idx):
-        """
-        输入：选中端口索引
-        输出：FAS当前辐射单元全局绝对坐标
-        """
-        if port_idx < 0 or port_idx >= self.fas_num_ports:
-            raise ValueError("端口索引超出FAS端口范围")
-        return self.coordinate + self.fas_port_local[port_idx]
-
-    def path_loss(self, tx_pos, rx_pos, alpha=2.0):
-        """路径损耗模型"""
-        dist = np.linalg.norm(tx_pos - rx_pos)
-        if dist < 0.1:
-            dist = 0.1
-        return 1.0 / (dist ** alpha)
-
-    def get_channel_gain(self, port_idx, target_pos):
-        """
-        计算：UAV-FAS到目标的信道增益
-        """
-        fas_pos = self.get_fas_abs_position(port_idx)
-        gain = self.path_loss(fas_pos, target_pos)
-        return gain, fas_pos
-
-    def fas_beam_optimize(self, ris_pos, eaves_pos):
-        """
-        遍历所有FAS端口，按 metric = g_ris - g_eve 排序返回候选列表
-        实现：对准RIS传输 + 天然零陷干扰窃听者
-        返回: (best_port, best_gain_ris, best_gain_eve, candidate_ports)
-        """
-        ports = []
-        for idx in range(self.fas_num_ports):
-            g_ris, _ = self.get_channel_gain(idx, ris_pos)
-            g_eve, _ = self.get_channel_gain(idx, eaves_pos)
-            metric = g_ris - g_eve
-            ports.append((idx, metric, g_ris, g_eve))
-
-        # 按 metric 降序排列
-        ports.sort(key=lambda x: x[1], reverse=True)
-        candidate_ports = [p[0] for p in ports]
-
-        best_port = ports[0][0]
-        best_gain_ris = ports[0][2]
-        best_gain_eve = ports[0][3]
-
-        return best_port, best_gain_ris, best_gain_eve, candidate_ports
-
-    def fas_port_select_with_rl(self, rl_signal, ris_pos, eaves_pos):
-        """
-        启发式 + RL微调的FAS端口选择
-
-        启发式给出候选排名, RL信号从top-K中选择:
-        - rl_signal ∈ [-1, 1]
-        - rl_signal < -0.3: 选候选第2名 (探索非最优端口)
-        - -0.3 ≤ rl_signal ≤ 0.3: 选启发式最优 (保持稳定)
-        - rl_signal > 0.3: 选候选第3名 (进一步探索)
-
-        这样RL可以:
-        1. 默认使用启发式最优端口
-        2. 在特定情况下微调到次优端口 (可能对用户更好)
-        """
-        _, _, _, candidate_ports = self.fas_beam_optimize(ris_pos, eaves_pos)
-
-        # RL信号决定从候选列表中选哪个
-        if rl_signal < -0.3 and len(candidate_ports) > 1:
-            selected_port = candidate_ports[1]  # 第2候选
-        elif rl_signal > 0.3 and len(candidate_ports) > 2:
-            selected_port = candidate_ports[2]  # 第3候选
-        else:
-            selected_port = candidate_ports[0]  # 启发式最优
-
-        self.select_port(selected_port)
-        return selected_port
-
-    def select_port(self, port_idx):
-        """选择激活的FAS端口"""
-        if 0 <= port_idx < self.fas_num_ports:
-            self.fas_active_port = port_idx
+        self.F = 1.0
 
     def update_coor_sys(self, delta_angle):
         """Update coordinate system"""
