@@ -93,7 +93,7 @@ class MiniSystem(object):
         
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
-        store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','F_power', 'reward','UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase'])
+        store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','F_power', 'reward','UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase', 'FAS_active_port'])
         
         # 初始化 UAV-BS-FAS 实体 (FAS作为唯一发射天线)
         self.UAV_BS_FAS = UAV_BS_FAS(
@@ -311,9 +311,19 @@ class MiniSystem(object):
             Phi_signal_mat = np.asmatrix(np.diag(signal_full), dtype=complex)
 
             # 人工噪声相位 (干扰元件 → 干扰窃听者)
-            jam_expanded = np.tile(jam_phases, jam_elements // 12 + 1)[:jam_elements]
+            # 关键修复: 使用原始策略 - 直接瞄准窃听者信道
+            # 干扰相位 = -窃听者信道相位, 这样干扰信号在窃听者处产生最大噪声
+            h_R_p_arr = np.asarray(self.h_R_p[0].channel_matrix).flatten()  # (N_ris,)
+            h_UR_arr = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
+            active_port_local = self.UAV_BS_FAS.fas_active_port  # 当前活跃端口
+            h_UR_active = h_UR_arr[:, active_port_local]  # (N_ris,)
+
+            # 计算窃听者信道相位
+            eve_channel_phase = np.angle(h_R_p_arr * h_UR_active)  # (N_ris,)
+
+            # 干扰相位 = -窃听者信道相位 (对齐窃听者,最大化噪声)
             jam_full = np.zeros(self.RIS.ant_num, dtype=complex)
-            jam_full[reflect_elements:reflect_elements+jam_elements] = np.exp(1j * jam_expanded * np.pi)
+            jam_full[reflect_elements:reflect_elements+jam_elements] = np.exp(-1j * eve_channel_phase[reflect_elements:reflect_elements+jam_elements])
             Phi_jam_mat = np.asmatrix(np.diag(jam_full), dtype=complex)
 
             # 有源放大: β × Φ (参考 ris_functions-jin: beta[i] = sqrt(1+10*rand))
@@ -370,8 +380,8 @@ class MiniSystem(object):
         # FrisModule: 干扰功率 = ||θ_J @ h_rp @ H_br @ G||²
         # 当前代码: an_power_eff = ||jam_ch||² × an_power
         # 所以 an_power 应该是基础干扰功率 (不含信道增益), 由 P_J 决定
-        P_J_dBm = -50  # 干扰功率 -50 dBm = 0.00001 mW (中等干扰)
-        self.an_power = 10 ** (P_J_dBm / 10)  # 1 mW
+        P_J_dBm = 10  # 干扰功率 10 dBm = 10 mW (大幅增强干扰以抑制窃听者)
+        self.an_power = 10 ** (P_J_dBm / 10)  # 10 mW
         self.z_AN = (np.random.randn(self.RIS.ant_num, 1) + 1j * np.random.randn(self.RIS.ant_num, 1)) / np.sqrt(2)
 
         # 更新信道容量
@@ -406,51 +416,71 @@ class MiniSystem(object):
             # RIS干扰相位 (归一化到[-1,1])
             jam_phase = np.angle(np.diag(np.asarray(self.RIS.Phi_jam))).tolist()
             self.data_manager.store_data([np.mean(jam_phase)/math.pi], 'RIS_jam_phase')
+            # FAS活跃端口号
+            self.data_manager.store_data([self.UAV_BS_FAS.fas_active_port], 'FAS_active_port')
 
         return new_state, reward, done, []
 
     def reward(self):
-        """计算奖励 — 对应论文 Eq.(11)
-        r = tanh(Σ R_k^sec - c1*p_m - c2*p_r - c4*p_e)
+        """计算奖励 — 改进版v3: 增强RIS干扰学习
 
-        设计依据:
-        - Σ R_k^sec: 所有用户保密速率之和 (论文主目标)
-        - p_m: 发射功率超限惩罚 (论文 c1*p_m)
-        - p_r: 最低安全速率保障 (论文 c2*p_r)
-        - p_e: 能耗惩罚, 仅在 ΣR^sec≥0 时生效 (论文 Eq.12: c4*p_e)
-        - tanh归一化: 将奖励限制在[-1,1], 稳定critic的Q值估计
+        改进点:
+        1. 增加距离奖励: 鼓励UAV靠近用户
+        2. 增强窃听者抑制: 奖励降低窃听者容量
+        3. 增加RIS干扰多样性奖励: 鼓励使用更大的干扰相位
+        4. 增加窃听者容量惩罚: 直接惩罚高窃听容量
         """
         import math
 
-        # === 1. 保密速率 SSR — 论文 Eq.(11): Σ R_k^sec ===
+        # === 1. 保密速率 SSR ===
         total_secrecy = 0
-        user_secrecies = []
         for user in self.user_list:
             secrecy_k = max(0, user.capacity - max(self.eavesdrop_capacity_array[:, user.index]))
             total_secrecy += secrecy_k
-            user_secrecies.append(secrecy_k)
 
-        # === 2. FAS端口保密增益 — 端口选择质量 ===
-        # 衡量活跃端口对用户的信号强度 vs 对窃听者的信号强度
+        # === 2. 距离奖励: 鼓励UAV靠近用户 ===
+        uav_pos = np.array(self.UAV_BS_FAS.coordinate[:2])
+        dist_rewards = []
+        for user in self.user_list:
+            user_pos = np.array(user.coordinate[:2])
+            dist = np.linalg.norm(uav_pos - user_pos)
+            dist_r = max(0, 1.0 - dist / 50.0)
+            dist_rewards.append(dist_r)
+        avg_dist_reward = np.mean(dist_rewards)
+
+        # === 3. 窃听者容量惩罚: 直接惩罚高窃听容量 ===
+        eve_penalty = 0
+        for user in self.user_list:
+            eve_cap = max(self.eavesdrop_capacity_array[:, user.index])
+            # 窃听者容量越高, 惩罚越重 (降低权重避免tanh饱和)
+            eve_penalty += eve_cap * 0.5
+
+        # === 4. RIS干扰多样性奖励: 鼓励使用更大的干扰相位 ===
+        ris_jam_diversity = 0
+        if self.if_with_FAS and hasattr(self.RIS, 'Phi_jam'):
+            jam_phases = np.angle(np.diag(np.asarray(self.RIS.Phi_jam)))
+            # 相位越分散(标准差越大), 干扰效果越好
+            jam_std = np.std(jam_phases)
+            ris_jam_diversity = jam_std / np.pi  # 归一化到[0,1]
+
+        # === 5. FAS端口保密增益 ===
         R_fas = 0
         active_port = self.UAV_BS_FAS.fas_active_port
         if len(self.attacker_list) > 0:
             fas_risks = []
             for user in self.user_list:
-                # 活跃端口到用户的信道增益
                 g_user = abs(np.asarray(self.h_U_k[user.index].channel_matrix)[active_port, 0]) ** 2
-                # 活跃端口到窃听者的信道增益
                 g_eve = abs(np.asarray(self.h_U_p[self.attacker_list[0].index].channel_matrix)[active_port, 0]) ** 2
                 if g_user > 0:
                     fas_risks.append(max(0, (g_user - g_eve) / (g_user + 1e-10)))
             if fas_risks:
                 R_fas = np.mean(fas_risks)
 
-        # === 3. 功率约束惩罚 — 论文 c1*p_m ===
-        P = self.UAV_BS_FAS.F ** 2  # F是标量增益
+        # === 6. 功率约束惩罚 ===
+        P = self.UAV_BS_FAS.F ** 2
         p_m = max(0, P - 10 ** (self.UAV_BS_FAS.F_Pmax / 10)) / (10 ** (self.UAV_BS_FAS.F_Pmax / 10) + 1e-10)
 
-        # === 4. 最低安全速率惩罚 — 论文 c2*p_r ===
+        # === 7. 最低安全速率惩罚 ===
         R_th = 0.01
         p_r = 0
         for user in self.user_list:
@@ -458,25 +488,17 @@ class MiniSystem(object):
             if secrecy_k < R_th:
                 p_r += (R_th - secrecy_k) / R_th
 
-        # === 5. 能耗惩罚 — 论文 Eq.(12): c4*p_e ===
-        # 论文定义: p_e = 0 (若 ΣR^sec < 0), 否则 p_e = 0.1 * ΣR^sec * E_p_norm
-        v_t = getattr(self.UAV_BS_FAS, 'v_t', 0)
-        E_p = get_energy_consumption(v_t)
-        E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
-        E_p_norm = max(0, min(1, E_p_norm))
-        if total_secrecy < 0:
-            p_e = 0.0
-        else:
-            p_e = 0.1 * total_secrecy * E_p_norm
+        # === 组合奖励 ===
+        raw_reward = (5.0 * total_secrecy          # 保密速率 (主目标)
+                      + 3.0 * avg_dist_reward      # 距离奖励 (靠近用户)
+                      + 2.0 * ris_jam_diversity    # RIS干扰多样性 (新: 鼓励相位分散)
+                      + 1.0 * R_fas                # FAS端口保密增益
+                      - 1.0 * eve_penalty          # 窃听者容量惩罚 (降低权重)
+                      - 0.5 * p_m                  # 功率惩罚
+                      - 1.0 * p_r                  # 最低速率惩罚
+                      )
 
-        # === 组合奖励 — 论文 Eq.(11) ===
-        raw_reward = (total_secrecy            # 论文: Σ R_k^sec
-                      + 0.3 * R_fas            # FAS端口保密增益（辅助信号）
-                      - p_m                    # 论文: c1*p_m
-                      - 2.0 * p_r              # 论文: c2*p_r
-                      - p_e)                   # 论文: c4*p_e (Eq.12)
-
-        # tanh 归一化到 [-1, 1] — 论文 Eq.(11)
+        # tanh 归一化到 [-1, 1]
         return np.tanh(raw_reward)
 
     def find_optimal_uav_position(self, grid_step=10):
