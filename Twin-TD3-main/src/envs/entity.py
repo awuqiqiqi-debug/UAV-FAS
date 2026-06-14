@@ -76,7 +76,7 @@ class RIS(object):
     - AJ (Active Jamming): 仅干扰
     """
     def __init__(self, coordinate, coor_sys_z, index = 0, ant_num=4, ant_type = 'UPA',
-                 Pr=30, P_J=20, beta=10, sigma=-100):
+                 Pr=30, P_J=20, beta=30, sigma=-100):
         """
         coordinate: RIS位置坐标, meters, np.array
         coor_sys_z: RIS法向量

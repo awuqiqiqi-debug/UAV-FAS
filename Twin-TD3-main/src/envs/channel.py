@@ -41,14 +41,14 @@ class mmWave_channel(object):
             self.sigma = 3
             self.channel_name = 'H_UR'
         elif channel_type == 'UAV_user' or channel_type == 'UAV_attacker':
-            self.n = 2.2  # 纯LoS场景，与UAV-RIS一致
+            self.n = 3.5  # 直射路径受地面散射/障碍物影响 (参考minimal_irs_env)
             self.sigma = 3
             if channel_type =='UAV_user':
                 self.channel_name = 'h_U_k,' + str(self.transmitter.index)
             elif channel_type == 'UAV_attacker':
                 self.channel_name = 'h_U_p,' + str(self.transmitter.index)
         elif channel_type == 'user_UAV' or channel_type == 'attacker_UAV':
-            self.n = 2.2  # 纯LoS场景，与UAV-RIS一致
+            self.n = 3.5
             self.sigma = 3
             if channel_type =='user_UAV':
                 self.channel_name = 'h_U_k,' + str(self.transmitter.index)
@@ -56,14 +56,14 @@ class mmWave_channel(object):
                 self.channel_name = 'h_U_p,' + str(self.transmitter.index)
                 
         elif channel_type == 'RIS_user' or channel_type == 'RIS_attacker':
-            self.n = 2.8
+            self.n = 2.5
             self.sigma = 3
             if channel_type =='RIS_user':
                 self.channel_name = 'h_R_k,' + str(self.transmitter.index)
             elif channel_type == 'RIS_attacker':
                 self.channel_name = 'h_R_p,' + str(self.transmitter.index)        
         elif channel_type == 'user_RIS' or channel_type == 'attacker_RIS':
-            self.n = 2.8
+            self.n = 2.5
             self.sigma = 3
             if channel_type =='user_RIS':
                 self.channel_name = 'h_R_k,' + str(self.transmitter.index)
@@ -75,13 +75,14 @@ class mmWave_channel(object):
         """
         calculate the path loss including shadow fading
         路径损耗模型: PL(dB) = C0 + 10*α*log10(d) + Xσ
-        C0 = 61dB (路径损耗基准常数)
-        α: 路径损耗指数 (αur=2.2, αul=2.2, αr=2.8) — 纯LoS场景
+        C0 = 40dB (路径损耗基准常数，匹配28GHz 3GPP UMi模型)
+        α: 路径损耗指数 (α_direct=3.0, α_UR=2.2, α_RU=2.5)
+           直射路径n较高(地面散射/障碍物)，RIS各跳n较低(高空LoS)
         Xσ: 阴影衰落 (σs=3dB)，相干时间内保持不变
         (in normal form, 返回信道增益 = 10^(-PL/10))
         """
         distance = np.linalg.norm(self.transmitter.coordinate - self.receiver.coordinate)
-        C0 = 61  # 路径损耗基准常数 (dB)
+        C0 = 40  # 路径损耗基准常数 (dB)
         PL = C0 + 10*self.n*math.log10(distance)
         # 相干时间内使用缓存值，超过相干时间重新采样
         if self.coherence_counter >= self.coherence_limit:

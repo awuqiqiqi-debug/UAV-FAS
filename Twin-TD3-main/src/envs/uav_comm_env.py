@@ -132,11 +132,12 @@ class MiniSystem(object):
             self.attacker_list.append(attacker)
         
         # 初始化RIS反射单元（地面固定）
-        # RIS固定位置：(20, -20, 12.5)，64个反射单元（8x8阵列）
-        ris_coordinate = np.array([20, -20, 12.5])  # RIS固定位置（靠近窃听者）
-        ris_coor_sys_z = np.array([0, 1, 0])  # 法线方向指向y轴(避免与[0,0,1]平行导致cross product为零)
+        # 从Excel文件读取RIS位置
+        ris_coordinate = self.data_manager.read_init_location('RIS', 0)
+        ris_norm_vec = self.data_manager.read_init_location('RIS_norm_vec', 0)
+        ris_coor_sys_z = ris_norm_vec / np.linalg.norm(ris_norm_vec)  # 归一化法线方向
         self.RIS = RIS(coordinate=ris_coordinate, coor_sys_z=ris_coor_sys_z, ant_num=ris_ant_num,
-                       Pr=30, P_J=20, beta=10, sigma=-100)  # Pr=30dBm, P_J=20dBm
+                       Pr=30, P_J=20, beta=30, sigma=-100)  # Pr=30dBm, P_J=20dBm
         
         self.eavesdrop_capacity_array= np.zeros((attacker_num, user_num))
         self.reward_design = reward_design
@@ -309,14 +310,15 @@ class MiniSystem(object):
             # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2:14]=信号相位, Phi[14:26]=干扰相位
 
             # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(11)]
-            BETA_MAX = 11.0
-            ris_beta_raw = float(Phi[0]) if len(Phi) > 0 else 0.0
+            BETA_MAX = 40.0
+            ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
             ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(11)]
 
             # 从动作中提取干扰比例 η (第1维), 映射到 [0.1, 0.6]
-            jam_ratio_raw = float(Phi[1]) if len(Phi) > 1 else 0.0
+            jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
             jam_ratio = 0.1 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.1, 0.6]
             jam_elements = int(self.RIS.ant_num * jam_ratio)
+            jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
 
             # 从动作中提取相位 (第2~25维, 共24维)
@@ -730,37 +732,49 @@ class MiniSystem(object):
         return math.log10(1 + alpha_k / beta_k)
 
     def calculate_capacity_array_of_attacker_p(self, p):
-        """计算攻击者p对所有用户的窃听容量（多端口等功率分配）"""
+        """计算攻击者p对各用户的窃听容量（按用户分别计算）
+
+        对每个用户k，窃听者的等效信道考虑:
+        - 直射路径: h_U_p[p] (UAV→窃听者)
+        - RIS反射路径: h_R_k[k] @ Phi_signal @ h_UR (经RIS优化后→用户k方向)
+        - 干扰噪声: h_R_p @ Phi_jam @ h_UR (RIS干扰)
+
+        不同用户的RIS→用户信道不同，导致窃听者对不同用户的窃听容量不同。
+        """
         K = len(self.user_list)
         noise_power = self.attacker_list[p].noise_power
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
 
-        if self.if_with_FAS:
-            h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
-            h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
-            Phi_signal = np.asarray(self.RIS.Phi_signal)
-            Phi_jam = np.asarray(self.RIS.Phi_jam)
-            amp_gains = np.diag(self.RIS.amplification_gains)
-            # 多端口联合信道
-            H_eff = 0
-            jam_power_total = 0
-            for port in active_ports:
-                h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
-                h_UR_active = h_UR[:, port]
-                H_reflect = h_R_p @ amp_gains @ Phi_signal @ h_UR_active
-                H_eff += (h_d + H_reflect) * self.UAV_FAS.F
-                # 干扰噪声
-                jam_ch = h_R_p @ Phi_jam @ h_UR_active
-                jam_power_total += abs(jam_ch) ** 2
-            an_power_eff = jam_power_total * self.an_power
-        else:
-            H_eff = np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F
-            an_power_eff = 0
+        caps = []
+        for k in range(K):
+            if self.if_with_FAS:
+                h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
+                h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
+                h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
+                Phi_signal = np.asarray(self.RIS.Phi_signal)
+                Phi_jam = np.asarray(self.RIS.Phi_jam)
+                amp_gains = np.diag(self.RIS.amplification_gains)
 
-        # 无自干扰项
-        alpha_p = abs(H_eff) ** 2
-        beta_p = dB_to_normal(noise_power) * 1e-3 + an_power_eff
-        return np.array([math.log10(1 + alpha_p / beta_p)] * K)
+                H_eff = 0
+                jam_power_total = 0
+                for port in active_ports:
+                    h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
+                    h_UR_active = h_UR[:, port]
+                    # 反射路径使用用户k的RIS→用户信道（区分不同用户）
+                    H_reflect = h_R_k @ amp_gains @ Phi_signal @ h_UR_active
+                    H_eff += (h_d + H_reflect) * self.UAV_FAS.F
+                    jam_ch = h_R_p @ Phi_jam @ h_UR_active
+                    jam_power_total += abs(jam_ch) ** 2
+                an_power_eff = jam_power_total * self.an_power
+            else:
+                H_eff = np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F
+                an_power_eff = 0
+
+            alpha_p = abs(H_eff) ** 2
+            beta_p = dB_to_normal(noise_power) * 1e-3 + an_power_eff
+            caps.append(math.log10(1 + alpha_p / beta_p))
+
+        return np.array(caps)
 
     def calculate_secure_capacity_of_user_k(self, k=2):
         """计算用户k的安全容量"""
