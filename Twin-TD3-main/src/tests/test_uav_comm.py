@@ -32,7 +32,7 @@ system = MiniSystem(
 print("\n[系统初始化信息]")
 print(f"- 用户数量: {system.user_num}")
 print(f"- 攻击者数量: {system.attacker_num}")
-print(f"- FAS端口数: {system.UAV_BS_FAS.fas_num_ports}")
+print(f"- FAS端口数: {system.UAV_FAS.fas_num_ports}")
 print(f"- 是否启用FAS: {system.if_with_FAS}")
 print(f"- 动作维度: {system.get_system_action_dim()}")
 print(f"- 状态维度: {system.get_system_state_dim()}")
@@ -49,7 +49,7 @@ print(f"[OK] 状态观测成功，维度: {len(state)}")
 
 # 测试单步执行
 print("\n[测试单步执行]")
-fas_action_dim = system.UAV_BS_FAS.fas_num_ports + 1  # 12端口选择 + 1 F增益 = 13
+fas_action_dim = system.UAV_FAS.fas_num_ports + 1  # 12端口选择 + 1 F增益 = 13
 ris_action_dim = 25  # 1 beta + 24 phases
 action_1 = np.zeros(fas_action_dim + ris_action_dim)  # 38维
 action_2 = np.array([0.1, 0.1])  # UAV移动动作

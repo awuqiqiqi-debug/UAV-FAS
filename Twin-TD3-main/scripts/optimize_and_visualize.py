@@ -1,5 +1,5 @@
 """
-UAV-BS-FAS 系统优化与完整可视化
+UAV-FAS 系统优化与完整可视化
 修复: FAS增益初始化为0的问题
 """
 import os
@@ -17,7 +17,7 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode M
 plt.rcParams['axes.unicode_minus'] = False
 
 print("=" * 70)
-print("UAV-BS-FAS 系统优化与完整可视化")
+print("UAV-FAS 系统优化与完整可视化")
 print("=" * 70)
 
 # ==================== 1. 系统初始化 ====================
@@ -33,11 +33,11 @@ system = MiniSystem(
 print("\n[2] 修复FAS增益初始化...")
 # F矩阵初始为全零导致fas_gain=0，容量全为0
 # 修复: 初始化F为单位向量
-system.UAV_BS_FAS.F = np.asmatrix(
-    np.ones((system.UAV_BS_FAS.fas_num_ports, 1), dtype=complex) / np.sqrt(system.UAV_BS_FAS.fas_num_ports)
+system.UAV_FAS.F = np.asmatrix(
+    np.ones((system.UAV_FAS.fas_num_ports, 1), dtype=complex) / np.sqrt(system.UAV_FAS.fas_num_ports)
 ) * np.sqrt(system.power_factor)
-print(f"  F矩阵初始化完成, shape={system.UAV_BS_FAS.F.shape}")
-print(f"  FAS gain = {np.mean(np.abs(system.UAV_BS_FAS.F)):.4f}")
+print(f"  F矩阵初始化完成, shape={system.UAV_FAS.F.shape}")
+print(f"  FAS gain = {np.mean(np.abs(system.UAV_FAS.F)):.4f}")
 
 # ==================== 3. 验证系统性能 ====================
 print("\n[3] 验证系统性能...")
@@ -69,8 +69,8 @@ energy_history = []
 for ep in range(episodes):
     system.reset()
     # 重新初始化F矩阵 (修复初始化问题)
-    system.UAV_BS_FAS.F = np.asmatrix(
-        np.ones((system.UAV_BS_FAS.fas_num_ports, 1), dtype=complex) / np.sqrt(system.UAV_BS_FAS.fas_num_ports)
+    system.UAV_FAS.F = np.asmatrix(
+        np.ones((system.UAV_FAS.fas_num_ports, 1), dtype=complex) / np.sqrt(system.UAV_FAS.fas_num_ports)
     ) * np.sqrt(system.power_factor)
 
     ep_reward = 0
@@ -91,14 +91,14 @@ for ep in range(episodes):
 
         # Agent 2: UAV轨迹 (趋向用户)
         user_center = np.mean([u.coordinate[:2] for u in system.user_list], axis=0)
-        direction = user_center - system.UAV_BS_FAS.coordinate[:2]
+        direction = user_center - system.UAV_FAS.coordinate[:2]
         direction = direction / (np.linalg.norm(direction) + 1e-6)
         action_2 = direction + np.random.randn(2) * noise_scale
         action_2 = np.clip(action_2, -1, 1)
 
         # 计算速度用于能耗
-        move_x = action_2[0] * system.UAV_BS_FAS.max_movement_per_time_slot
-        move_y = action_2[1] * system.UAV_BS_FAS.max_movement_per_time_slot
+        move_x = action_2[0] * system.UAV_FAS.max_movement_per_time_slot
+        move_y = action_2[1] * system.UAV_FAS.max_movement_per_time_slot
         v_t = np.sqrt(move_x**2 + move_y**2)
 
         new_state, reward, done, _ = system.step(
@@ -129,7 +129,7 @@ for ep in range(episodes):
     secure_capacity_user1.append(np.mean(ep_secure1))
     secure_capacity_user2.append(np.mean(ep_secure2))
     attacker_capacity_history.append(np.mean(ep_attacker))
-    uav_positions.append(system.UAV_BS_FAS.coordinate[:2].copy())
+    uav_positions.append(system.UAV_FAS.coordinate[:2].copy())
     see_history.append(np.mean(ep_see))
     energy_history.append(np.mean(ep_energy))
 
@@ -142,7 +142,7 @@ print("\n[5] 生成完整可视化图表...")
 
 fig = plt.figure(figsize=(20, 24))
 gs = GridSpec(4, 3, figure=fig, hspace=0.35, wspace=0.3)
-fig.suptitle('UAV-BS-FAS TD3 Training Complete Visualization\n'
+fig.suptitle('UAV-FAS TD3 Training Complete Visualization\n'
              'Fluid Antenna Assisted UAV Secure Communication System',
              fontsize=16, fontweight='bold', y=0.98)
 
@@ -327,7 +327,7 @@ ax9.grid(True, alpha=0.3)
 ax10 = fig.add_subplot(gs[3, 1])
 ax10.set_title('Beamforming Power Distribution', fontsize=12, fontweight='bold')
 
-G_power = np.abs(np.asarray(system.UAV_BS_FAS.G)) ** 2
+G_power = np.abs(np.asarray(system.UAV_FAS.G)) ** 2
 for k in range(G_power.shape[1]):
     ax10.bar(range(G_power.shape[0]), G_power[:, k], alpha=0.7, label=f'User {k}')
 ax10.set_xlabel('Antenna Index')
@@ -404,7 +404,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UAV-BS-FAS TD3 Complete Visualization Report</title>
+    <title>UAV-FAS TD3 Complete Visualization Report</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }}
@@ -437,7 +437,7 @@ html_content = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>UAV-BS-FAS TD3 Complete Visualization Report</h1>
+        <h1>UAV-FAS TD3 Complete Visualization Report</h1>
         <p style="text-align:center; color:#94a3b8; margin-bottom:30px;">
             Fluid Antenna Assisted UAV Secure Communication | Reinforcement Learning Training
         </p>
@@ -557,7 +557,7 @@ html_content = f"""<!DOCTYPE html>
         </div>
 
         <footer>
-            Generated: 2026-05-28 | UAV-BS-FAS TD3 Complete Visualization System
+            Generated: 2026-05-28 | UAV-FAS TD3 Complete Visualization System
         </footer>
     </div>
 </body>

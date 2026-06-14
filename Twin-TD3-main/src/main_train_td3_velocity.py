@@ -130,7 +130,7 @@ while episode_cnt < EPISODE_NUM:
             dy = vy * DT
 
             # 边界软约束：接近边界时减速
-            x, y = system.UAV_BS_FAS.coordinate[0], system.UAV_BS_FAS.coordinate[1]
+            x, y = system.UAV_FAS.coordinate[0], system.UAV_FAS.coordinate[1]
             if x > 40:  # 接近右边界
                 dx = min(dx, 0)  # 只能向左
             elif x < -40:  # 接近左边界
@@ -141,8 +141,8 @@ while episode_cnt < EPISODE_NUM:
                 dy = max(dy, 0)  # 只能向上
 
             # 传入环境 (将速度转换为归一化位移)
-            action_0 = dx / system.UAV_BS_FAS.max_movement_per_time_slot
-            action_1 = dy / system.UAV_BS_FAS.max_movement_per_time_slot
+            action_0 = dx / system.UAV_FAS.max_movement_per_time_slot
+            action_1 = dy / system.UAV_FAS.max_movement_per_time_slot
 
             # 执行动作
             new_s1, reward, done, _ = system.step(

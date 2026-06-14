@@ -1,5 +1,5 @@
 """
-UAV-BS-FAS TD3 训练结果可视化报告生成器
+UAV-FAS TD3 训练结果可视化报告生成器
 中文版，按分类组织图片和讲解
 自动查找最新训练目录并生成报告
 """
@@ -63,7 +63,7 @@ else:
     print(f"\n训练已完成！共 {MAX_EPISODES} 轮")
 
 print("\n" + "=" * 60)
-print("生成UAV-BS-FAS训练可视化报告")
+print("生成UAV-FAS训练可视化报告")
 print("=" * 60)
 
 # ==================== 1. 加载训练数据 ====================
@@ -167,7 +167,7 @@ if all_uav轨迹:
         ax1.scatter(traj[-1, 0], traj[-1, 1], c=[colors[i]], s=100, marker='*',
                     edgecolors='black', linewidth=1, zorder=5)
 
-uav_start = system.UAV_BS_FAS.coordinate
+uav_start = system.UAV_FAS.coordinate
 ax1.scatter(uav_start[0], uav_start[1], c='blue', s=200, marker='s', edgecolors='black',
             linewidth=2, zorder=5, label=f'UAV起点 ({uav_start[0]:.0f}, {uav_start[1]:.0f})')
 
@@ -301,7 +301,7 @@ ax.set_title('RIS相位分布', fontsize=13, fontweight='bold')
 ax.grid(True, alpha=0.3)
 
 ax = axes[0, 1]
-G_power = np.abs(np.asarray(system.UAV_BS_FAS.G)) ** 2
+G_power = np.abs(np.asarray(system.UAV_FAS.G)) ** 2
 x = np.arange(G_power.shape[0])
 width = 0.35
 ax.bar(x - width/2, G_power[:, 0], width, label='用户1', color='green', alpha=0.7)
@@ -324,9 +324,9 @@ gains_user0 = []
 gains_user1 = []
 for pos in positions:
     test_sys.reset()
-    test_sys.UAV_BS_FAS.coordinate[0] = pos[0]
-    test_sys.UAV_BS_FAS.coordinate[1] = pos[1]
-    test_sys.UAV_BS_FAS.F = np.asmatrix(
+    test_sys.UAV_FAS.coordinate[0] = pos[0]
+    test_sys.UAV_FAS.coordinate[1] = pos[1]
+    test_sys.UAV_FAS.F = np.asmatrix(
         np.ones((16, 1), dtype=complex) / np.sqrt(16)) * np.sqrt(test_sys.power_factor)
     for h in test_sys.h_U_k + test_sys.h_U_p + [test_sys.h_UR] + test_sys.h_R_k + test_sys.h_R_p:
         h.update_CSI()
@@ -368,7 +368,7 @@ fig4, ax4 = plt.subplots(1, 1, figsize=(12, 8))
 ax4.axis('off')
 
 params_text = """
-UAV-BS-FAS 系统参数配置
+UAV-FAS 系统参数配置
 ================================================================
 
 硬件配置:
@@ -435,7 +435,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UAV-BS-FAS TD3 训练可视化报告</title>
+    <title>UAV-FAS TD3 训练可视化报告</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: 'Microsoft YaHei', 'SimHei', Arial, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.8; }}
@@ -484,7 +484,7 @@ html_content = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>UAV-BS-FAS TD3 训练可视化报告</h1>
+        <h1>UAV-FAS TD3 训练可视化报告</h1>
         <p style="text-align:center; color:#94a3b8; font-size:1.1em; margin-bottom:40px;">
             流体天线辅助无人机保密通信系统 | 强化学习训练结果分析
         </p>
@@ -516,7 +516,7 @@ html_content = f"""<!DOCTYPE html>
             <div class="chart-section">
                 <div class="chart-title">系统拓扑与UAV飞行轨迹</div>
                 <div class="chart-desc">
-                    展示UAV-BS-FAS系统的整体布局，包括UAV起点、用户位置、攻击者位置和RIS部署位置。
+                    展示UAV-FAS系统的整体布局，包括UAV起点、用户位置、攻击者位置和RIS部署位置。
                     虚线表示RIS反射路径，彩色曲线表示不同训练轮次的UAV飞行轨迹。
                 </div>
                 <img src="fig1_topology.png" alt="系统拓扑图">
@@ -676,7 +676,7 @@ RIS反射: UAV -> RIS -> 用户 (增强)
             <div class="chart-section">
                 <div class="chart-title">系统参数详细配置</div>
                 <div class="chart-desc">
-                    完整展示UAV-BS-FAS系统的硬件配置、训练参数和信道模型参数。
+                    完整展示UAV-FAS系统的硬件配置、训练参数和信道模型参数。
                 </div>
                 <img src="fig4_system_params.png" alt="系统参数">
             </div>
@@ -695,7 +695,7 @@ RIS反射: UAV -> RIS -> 用户 (增强)
         </div>
 
         <footer>
-            <p>生成时间: 2026-05-28 | UAV-BS-FAS TD3 训练可视化系统</p>
+            <p>生成时间: 2026-05-28 | UAV-FAS TD3 训练可视化系统</p>
             <p>强化学习用于保密能源 -- 流体天线辅助无人机保密通信</p>
         </footer>
     </div>

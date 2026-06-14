@@ -1,4 +1,4 @@
-"""续训脚本：UAV_BS_FAS (基站+流体天线) + RIS接近度奖励"""
+"""续训脚本：UAV_FAS (基站+流体天线) + RIS接近度奖励"""
 import os, sys, csv, glob
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 sys.stdout.reconfigure(line_buffering=True)
@@ -35,7 +35,7 @@ if load_path:
 else:
     print("No existing checkpoint, starting fresh")
 
-# Build system — UAV_BS_FAS: BS 4天线 + FAS 4单元
+# Build system — UAV_FAS: BS 4天线 + FAS 4单元
 system = MiniSystem(
     user_num=2, RIS_ant_num=4, UAV_ant_num=4, if_dir_link=1,
     if_with_RIS=True, if_move_users=True, if_movements=True,

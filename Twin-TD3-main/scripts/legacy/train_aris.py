@@ -1,4 +1,4 @@
-"""ARIS训练脚本：有源RIS + UAV_BS_FAS + 窃听者抑制
+"""ARIS训练脚本：有源RIS + UAV_FAS + 窃听者抑制
 v15: RIS接近度奖励(0.5)引导UAV靠近RIS，同时保持SSR和窃听者抑制"""
 import os, sys, csv, glob
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

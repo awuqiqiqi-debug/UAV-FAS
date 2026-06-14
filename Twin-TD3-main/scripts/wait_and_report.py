@@ -1,5 +1,5 @@
 """
-UAV-BS-FAS 训练监控脚本
+UAV-FAS 训练监控脚本
 训练完成后自动生成中文HTML报告
 """
 import os
@@ -30,7 +30,7 @@ def get_max_episode():
     return max_ep
 
 print("=" * 60)
-print("UAV-BS-FAS 训练监控与报告生成")
+print("UAV-FAS 训练监控与报告生成")
 print("=" * 60)
 print(f"目标: {TARGET_EPISODES} 轮")
 print(f"训练目录: {TRAIN_DIR}")

@@ -33,7 +33,7 @@ if DRL_ALGO == 'td3':
 elif DRL_ALGO == 'ddpg':
     from src.agents.ddpg_agent import Agent
 
-# 导入 UAV-BS-FAS 环境
+# 导入 UAV-FAS 环境
 from src.envs.uav_comm_env import MiniSystem
 import numpy as np
 import math
@@ -74,7 +74,8 @@ system = MiniSystem(
     reward_design = REWARD_DESIGN,
     project_name = project_name,
     step_num = step_num,
-    existing_path = LOAD_PATH
+    existing_path = LOAD_PATH,
+    num_active_ports=2  # 同时激活2个FAS端口 (Gumbel-Softmax Top-2)
 )
 
 if_Theta_fixed = False
@@ -156,7 +157,7 @@ agent_2 = Agent(
 
 # 打印系统信息
 meta_dic = {}
-print("***********************UAV-BS-FAS 系统信息******************************")
+print("***********************UAV-FAS 系统信息******************************")
 print("folder_name:     "+str(system.data_manager.store_path))
 meta_dic['folder_name'] = system.data_manager.store_path
 print("user_num:        "+str(system.user_num))
@@ -167,8 +168,8 @@ print("if_with_FAS:     "+str(system.if_with_FAS))
 meta_dic['if_with_FAS'] = system.if_with_FAS
 print("if_user_m:       "+str(system.if_move_users))
 meta_dic['if_move_users'] = system.if_move_users
-print("FAS_ant_num:     "+str(system.UAV_BS_FAS.fas_num_ports))
-meta_dic['fas_ant_num'] = system.UAV_BS_FAS.fas_num_ports
+print("FAS_ant_num:     "+str(system.UAV_FAS.fas_num_ports))
+meta_dic['fas_ant_num'] = system.UAV_FAS.fas_num_ports
 print("if_movements:    "+str(system.if_movements))
 meta_dic['system_if_movements'] = system.if_movements
 print("reverse_x_y:     "+str(system.reverse_x_y))
@@ -234,6 +235,7 @@ best_reward = -float('inf')
 
 while episode_cnt < total_episodes:
     system.reset()
+    system.training = True  # 训练模式: Gumbel-Softmax可微分
     step_cnt = 0
     score_per_ep = 0
 
@@ -261,15 +263,16 @@ while episode_cnt < total_episodes:
         # Phi: 第1维为β，后24维为RIS相位
 
         if if_Theta_fixed:
-            action_1[13:] = np.zeros(25)  # 固定RIS相位为零
+            action_1[13:] = np.zeros(26)  # 固定RIS相位为零
 
         # 执行动作 (FAS-only mode)
+        # 动作布局: action_1[0:12]=端口, [12]=F增益, [13]=β, [14]=η(jam_ratio), [15:39]=相位
         new_state_1, reward, done, info = system.step(
             action_0=action_2[0],  # vx速度
             action_1=action_2[1],  # vy速度
             action_2=0,  # 高度固定50m
             G=action_1[0:13],  # 13维: 12端口选择 + 1 F增益
-            Phi=action_1[13:38],  # 25维RIS: 1维放大增益β + 24维相位
+            Phi=action_1[13:39],  # 26维RIS: 1维β + 1维η + 24维相位
             set_pos_x=action_2[0],
             set_pos_y=action_2[1]
         )
@@ -281,7 +284,8 @@ while episode_cnt < total_episodes:
         agent_2.remember(observersion_2, action_2, reward, new_state_2, int(done))
 
         agent_1.learn()
-        if not TRAINED_UAV:
+        # 双Agent稳定性: Agent 2每2步学习1次，降低非稳态影响
+        if not TRAINED_UAV and step_cnt % 2 == 0:
             agent_2.learn()
 
         observersion_1 = new_state_1
@@ -299,11 +303,17 @@ while episode_cnt < total_episodes:
 
     system.reset()
 
+    # 干扰相位课程学习衰减: 逐渐减少对准窃听者的权重，让Agent学会自主控制
+    system.jam_align_weight = max(
+        system.jam_align_min,
+        system.jam_align_weight * system.jam_align_decay
+    )
+
     # 打印训练进度
     if episode_cnt % 10 == 0:
         avg_reward_10 = np.mean(episode_rewards[-10:]) if len(episode_rewards) >= 10 else np.mean(episode_rewards)
         avg_cap_10 = np.mean(episode_capacities[-10:]) if len(episode_capacities) >= 10 else np.mean(episode_capacities)
-        print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | avg10: {avg_reward_10:8.3f} | cap: {avg_cap:.4f} | avg_cap10: {avg_cap_10:.4f}")
+        print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | avg10: {avg_reward_10:8.3f} | cap: {avg_cap:.4f} | jam_align: {system.jam_align_weight:.3f}")
 
     episode_cnt += 1
 

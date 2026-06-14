@@ -1,6 +1,6 @@
 #%matplotlib inline
 import numpy as np
-from src.envs.entity import UAV_BS_FAS, RIS, User, Attacker
+from src.envs.entity import UAV_FAS, RIS, User, Attacker
 from src.envs.channel import mmWave_channel
 from src.envs.math_tool import dB_to_normal, normal_to_dB, map_to, convert_list_to_complex_matrix, convert_list_to_complex_diag, diag
 from datetime import datetime
@@ -76,8 +76,8 @@ class MiniSystem(object):
         # 1.init entities: 1 UAV, 1 RIS, many users and attackers
         self.data_manager = DataManager(file_path='./data', project_name = project_name, \
         store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','G_power', 'reward','UAV_movement', 'ARIS_amplification', 'FAS_port', 'RIS_scheduling'])
-        # 1.1 init UAV position and beamforming matrix (UAV_BS_FAS: 基站+波束可重构离散端口流体天线)
-        self.UAV = UAV_BS_FAS(
+        # 1.1 init UAV position and beamforming matrix (UAV_FAS: 基站+波束可重构离散端口流体天线)
+        self.UAV = UAV_FAS(
             coordinate=self.data_manager.read_init_location('UAV', 0),
             bs_ant_num=UAV_ant_num, bs_ant_type='ULA',
             fas_num_ports=12, fas_ant_type='UPA',

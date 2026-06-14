@@ -76,13 +76,13 @@ class RIS(object):
     - AJ (Active Jamming): 仅干扰
     """
     def __init__(self, coordinate, coor_sys_z, index = 0, ant_num=4, ant_type = 'UPA',
-                 Pr=0, P_J=10, beta=10, sigma=-100):
+                 Pr=30, P_J=20, beta=10, sigma=-100):
         """
         coordinate: RIS位置坐标, meters, np.array
         coor_sys_z: RIS法向量
         ant_num: RIS反射单元数量
-        Pr: RIS总功率约束 (dBm) - 有源RIS放大功率
-        P_J: 干扰功率 (dBm)
+        Pr: RIS总功率约束 (dBm) - 有源RIS放大功率 (默认30dBm=1W)
+        P_J: 干扰功率 (dBm) (默认20dBm=100mW)
         beta: 反射单元幅度增益 (dB) - 有源放大增益
         sigma: 热噪声功率 (dBm)
         """
@@ -445,9 +445,9 @@ class RIS(object):
         """mW转dBm"""
         return 10 * math.log10(mw)
 
-class UAV_BS_FAS(object):
+class UAV_FAS(object):
     """
-    UAV-FAS Integrated Entity (流体天线发射平台):
+    UAV-FAS Entity (无人机-流体天线一体化平台):
     - UAV mobility platform (无人机移动平台)
     - FAS: 流体天线系统作为唯一发射天线
 

@@ -11,7 +11,7 @@ plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode M
 plt.rcParams['axes.unicode_minus'] = False
 
 print("=" * 60)
-print("UAV-BS-FAS 系统验证与可视化")
+print("UAV-FAS 系统验证与可视化")
 print("=" * 60)
 
 print("\n[1] 初始化系统...")
@@ -76,14 +76,14 @@ for ep in range(episodes):
     rewards_history.append(ep_reward)
     capacity_history.append(np.mean(ep_capacity, axis=0))
     attacker_capacity_history.append(np.mean(ep_attacker_cap, axis=0))
-    uav_positions.append(system.UAV_BS_FAS.coordinate[:2].copy())
+    uav_positions.append(system.UAV_FAS.coordinate[:2].copy())
 
     if (ep + 1) % 20 == 0:
         print(f"  Episode {ep + 1}/{episodes}: reward={ep_reward:.4f}")
 
 print("\n[5] 生成可视化图表...")
 fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-fig.suptitle('UAV-BS-FAS TD3 Training Visualization', fontsize=16, fontweight='bold')
+fig.suptitle('UAV-FAS TD3 Training Visualization', fontsize=16, fontweight='bold')
 
 ax1 = axes[0, 0]
 ax1.plot(rewards_history, 'b-', linewidth=1.5, alpha=0.7)
@@ -170,7 +170,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UAV-BS-FAS TD3 Training Visualization</title>
+    <title>UAV-FAS TD3 Training Visualization</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }}
@@ -196,7 +196,7 @@ html_content = f"""<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>UAV-BS-FAS TD3 Training Visualization</h1>
+        <h1>UAV-FAS TD3 Training Visualization</h1>
         <p style="text-align:center; color:#94a3b8; margin-bottom:30px;">Fluid Antenna Assisted UAV Secure Communication | RL Training Results</p>
 
         <div class="grid">
@@ -297,7 +297,7 @@ html_content = f"""<!DOCTYPE html>
         </div>
 
         <footer>
-            Generated: 2026-05-28 | UAV-BS-FAS TD3 Training Visualization System
+            Generated: 2026-05-28 | UAV-FAS TD3 Training Visualization System
         </footer>
     </div>
 </body>

@@ -18,12 +18,16 @@ class mmWave_channel(object):
         self.channel_name = ''
         self.n = 0
         self.sigma = 0
-        self.transmitter = transmitter 
+        self.transmitter = transmitter
         self.receiver = receiver
         self.channel_type = self.init_type()    # 'UAV_RIS', 'UAV_user', 'UAV_attacker', 'RIS_user', 'RIS_attacker'
-        
+
         # self.distance = np.linalg.norm(transmitter.coordinate - receiver.coordinate)
         self.frequncy = frequncy
+        # 阴影衰落相干缓存: Td=1s, delta_t=0.1s → 相干时间=10步
+        self.coherence_counter = 0
+        self.coherence_limit = 10  # Td / delta_t
+        self.cached_shadow_loss = np.random.normal() * self.sigma
         # init & updata path loss
         self.path_loss_normal = self.get_channel_path_loss()
         self.path_loss_dB = normal_to_dB(self.path_loss_normal)
@@ -37,14 +41,14 @@ class mmWave_channel(object):
             self.sigma = 3
             self.channel_name = 'H_UR'
         elif channel_type == 'UAV_user' or channel_type == 'UAV_attacker':
-            self.n = 3.5
+            self.n = 2.2  # 纯LoS场景，与UAV-RIS一致
             self.sigma = 3
             if channel_type =='UAV_user':
                 self.channel_name = 'h_U_k,' + str(self.transmitter.index)
             elif channel_type == 'UAV_attacker':
                 self.channel_name = 'h_U_p,' + str(self.transmitter.index)
         elif channel_type == 'user_UAV' or channel_type == 'attacker_UAV':
-            self.n = 3.5
+            self.n = 2.2  # 纯LoS场景，与UAV-RIS一致
             self.sigma = 3
             if channel_type =='user_UAV':
                 self.channel_name = 'h_U_k,' + str(self.transmitter.index)
@@ -72,16 +76,19 @@ class mmWave_channel(object):
         calculate the path loss including shadow fading
         路径损耗模型: PL(dB) = C0 + 10*α*log10(d) + Xσ
         C0 = 61dB (路径损耗基准常数)
-        α: 路径损耗指数 (αur=2.2, αul=3.5, αr=2.8)
-        Xσ: 阴影衰落 (σs=3dB)
+        α: 路径损耗指数 (αur=2.2, αul=2.2, αr=2.8) — 纯LoS场景
+        Xσ: 阴影衰落 (σs=3dB)，相干时间内保持不变
         (in normal form, 返回信道增益 = 10^(-PL/10))
         """
         distance = np.linalg.norm(self.transmitter.coordinate - self.receiver.coordinate)
-        # 使用C0=61dB作为基准常数
         C0 = 61  # 路径损耗基准常数 (dB)
         PL = C0 + 10*self.n*math.log10(distance)
-        shadow_loss = np.random.normal() * self.sigma
-        return dB_to_normal(-(PL - shadow_loss))
+        # 相干时间内使用缓存值，超过相干时间重新采样
+        if self.coherence_counter >= self.coherence_limit:
+            self.cached_shadow_loss = np.random.normal() * self.sigma
+            self.coherence_counter = 0
+        self.coherence_counter += 1
+        return dB_to_normal(-(PL - self.cached_shadow_loss))
 
     def get_estimated_channel_matrix(self):
         """

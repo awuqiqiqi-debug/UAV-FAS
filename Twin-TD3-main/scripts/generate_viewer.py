@@ -90,7 +90,7 @@ body {{ font-family: 'Segoe UI', sans-serif; background: #0f1923; color: #e0e0e0
 <body>
 <div class="header">
   <h1>Twin-TD3 Multi-functional RIS + FAS Training Results</h1>
-  <p>500 Episodes | UAV-BS-FAS + Multi-functional RIS (Reflect + Jam) | SSR Reward</p>
+  <p>500 Episodes | UAV-FAS + Multi-functional RIS (Reflect + Jam) | SSR Reward</p>
 </div>
 <div class="container">
   <div class="stats-row">
@@ -150,7 +150,7 @@ body {{ font-family: 'Segoe UI', sans-serif; background: #0f1923; color: #e0e0e0
   <div class="info-box">
     <h3>System Model</h3>
     <ul>
-      <li><b>UAV-BS-FAS:</b> UAV carries Base Station (4 ULA antennas) + Fluid Antenna System (8 discrete ports UPA)</li>
+      <li><b>UAV-FAS:</b> UAV carries Base Station (4 ULA antennas) + Fluid Antenna System (8 discrete ports UPA)</li>
       <li><b>Multi-functional RIS:</b> 4 elements, dual-mode - signal reflection amplification (theta_R) + artificial noise jamming (theta_J)</li>
       <li><b>Users:</b> 2 legitimate users | <b>Eavesdropper:</b> 1 attacker</li>
       <li><b>Channel:</b> mmWave 28GHz UMi model with direct + RIS-reflected paths</li>

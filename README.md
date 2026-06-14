@@ -132,8 +132,9 @@ python scripts/generate_plots.py --path data/storage/scratch/<DIR>
 | 参数 | 值 |
 |------|-----|
 | 载波频率 | 28 GHz (毫米波) |
-| FAS端口 | 12（唯一发射天线） |
-| RIS单元 | 64 (8×8，有源放大) |
+| FAS端口 | 12（唯一发射天线，Gumbel Top-K，同时激活2~3端口） |
+| RIS单元 | 64 (8×8，有源放大，Agent控制干扰比例) |
+| RIS位置 | (20, -20, 12.5) m（靠近窃听者） |
 | 最大水平速度 | 1.0 m/s |
 | 固定飞行高度 | 50 m |
 | 发射功率上限 | 30 dBm |
