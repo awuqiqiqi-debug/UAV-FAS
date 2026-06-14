@@ -95,10 +95,10 @@ class MiniSystem(object):
         self.ris_ant_num = ris_ant_num  # RIS反射单元数量
         self.num_active_ports = num_active_ports  # 同时激活的FAS端口数 (2~3)
         self.training = True  # 训练/推理模式切换
-        # 干扰相位课程学习: 初始对准窃听者80%，逐渐减少到0%
+        # 干扰相位课程学习: 初始对准窃听者80%，逐渐减少到50%
         self.jam_align_weight = 0.8  # 初始对准权重
-        self.jam_align_decay = 0.9998  # 每episode衰减因子 (慢衰减)
-        self.jam_align_min = 0.3     # 最小对准权重 (保持基础干扰能力)
+        self.jam_align_decay = 0.99995  # 每episode衰减因子 (更慢衰减)
+        self.jam_align_min = 0.5     # 最小对准权重 (保持较高干扰精度)
         
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
@@ -314,9 +314,9 @@ class MiniSystem(object):
             ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
             ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(11)]
 
-            # 从动作中提取干扰比例 η (第1维), 映射到 [0.1, 0.6]
+            # 从动作中提取干扰比例 η (第1维), 映射到 [0.2, 0.7]
             jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
-            jam_ratio = 0.1 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.1, 0.6]
+            jam_ratio = 0.2 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.2, 0.7]
             jam_elements = int(self.RIS.ant_num * jam_ratio)
             jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
@@ -506,12 +506,14 @@ class MiniSystem(object):
         lambda_e = 0.1 if total_secrecy < 0.1 else 0.3
         p_e = lambda_e * max(0, total_secrecy) * E_p_norm
 
-        # === 7. 窃听者容量惩罚 ===
-        # 直接惩罚高窃听容量，驱动Agent主动压制窃听者
+        # === 7. 窃听者容量惩罚 (自适应) ===
+        # 窃听越大，惩罚越重：lambda_eve ∈ [0.2, 0.8]
         avg_eavesdrop = np.mean([max(self.eavesdrop_capacity_array[:, k])
                                  for k in range(len(self.user_list))])
         # 归一化到[0,1]: 以5bits/s/Hz为参考上限
         p_eve = min(avg_eavesdrop / 5.0, 1.0)
+        # 自适应惩罚系数：窃听容量越大，惩罚越重
+        lambda_eve = 0.2 + 0.6 * min(avg_eavesdrop / 3.0, 1.0)
 
         # === 组合奖励 ===
         raw_reward = (0.4 * total_secrecy                # 主目标: 保密速率
@@ -520,7 +522,7 @@ class MiniSystem(object):
                       - 0.1 * p_m                        # 功率约束
                       - 0.5 * p_r                        # 最低安全速率约束
                       - 0.1 * p_e                        # 能耗惩罚
-                      - 0.3 * p_eve)                     # 窃听者容量惩罚 (新增)
+                      - lambda_eve * p_eve)              # 窃听者容量惩罚 (自适应)
 
         return np.tanh(raw_reward)
 
