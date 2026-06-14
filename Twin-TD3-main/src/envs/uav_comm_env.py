@@ -97,8 +97,8 @@ class MiniSystem(object):
         self.training = True  # 训练/推理模式切换
         # 干扰相位课程学习: 初始对准窃听者80%，逐渐减少到0%
         self.jam_align_weight = 0.8  # 初始对准权重
-        self.jam_align_decay = 0.995  # 每episode衰减因子
-        self.jam_align_min = 0.0     # 最小对准权重
+        self.jam_align_decay = 0.9998  # 每episode衰减因子 (慢衰减)
+        self.jam_align_min = 0.3     # 最小对准权重 (保持基础干扰能力)
         
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
@@ -506,13 +506,21 @@ class MiniSystem(object):
         lambda_e = 0.1 if total_secrecy < 0.1 else 0.3
         p_e = lambda_e * max(0, total_secrecy) * E_p_norm
 
-        # === 组合奖励 (权重调整: 使raw_reward尽量在[-1,1]内，避免tanh饱和) ===
-        raw_reward = (0.4 * total_secrecy                # 主目标: 保密速率 [0, 0.8]
-                      + 0.1 * R_fas                      # FAS辅助安全 [0, 0.1]
-                      + 0.2 * R_spatial                  # 空间引导 [0, 0.1]
-                      - 0.1 * p_m                        # 功率约束 [0, 0.1]
-                      - 0.5 * p_r                        # 最低安全速率约束 [0, 0.5]
-                      - 0.1 * p_e)                       # 能耗惩罚 [0, 0.1]
+        # === 7. 窃听者容量惩罚 ===
+        # 直接惩罚高窃听容量，驱动Agent主动压制窃听者
+        avg_eavesdrop = np.mean([max(self.eavesdrop_capacity_array[:, k])
+                                 for k in range(len(self.user_list))])
+        # 归一化到[0,1]: 以5bits/s/Hz为参考上限
+        p_eve = min(avg_eavesdrop / 5.0, 1.0)
+
+        # === 组合奖励 ===
+        raw_reward = (0.4 * total_secrecy                # 主目标: 保密速率
+                      + 0.1 * R_fas                      # FAS辅助安全
+                      + 0.1 * R_spatial                  # 空间引导 (降低权重)
+                      - 0.1 * p_m                        # 功率约束
+                      - 0.5 * p_r                        # 最低安全速率约束
+                      - 0.1 * p_e                        # 能耗惩罚
+                      - 0.3 * p_eve)                     # 窃听者容量惩罚 (新增)
 
         return np.tanh(raw_reward)
 
