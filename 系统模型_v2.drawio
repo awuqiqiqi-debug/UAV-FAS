@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-06-16T09:30:00.000Z" agent="Claude" version="24.0.0">
+  <diagram id="system-v2" name="系统模型 v2">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--          背景 + 地面                      -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 天空渐变背景 -->
+        <mxCell id="sky" value="" style="shape=mxgraph.basic.rect;fillColor=#E3F2FD;strokeColor=none;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="50" y="30" width="1500" height="920" as="geometry"/>
+        </mxCell>
+
+        <!-- 地面 (带渐变效果) -->
+        <mxCell id="ground" value="" style="shape=mxgraph.basic.rect;fillColor=#8D6E63;strokeColor=#5D4037;arcSize=1;opacity=60;gradientColor=#A1887F;gradientDirection=south;" vertex="1" parent="1">
+          <mxGeometry x="50" y="820" width="1500" height="130" as="geometry"/>
+        </mxCell>
+        <!-- 地面纹理线 -->
+        <mxCell id="grass1" value="" style="endArrow=none;strokeColor=#6D4C41;strokeWidth=0.5;opacity=40;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="100" y="850" as="sourcePoint"/><mxPoint x="1500" y="850" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="grass2" value="" style="endArrow=none;strokeColor=#6D4C41;strokeWidth=0.5;opacity=30;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="100" y="870" as="sourcePoint"/><mxPoint x="1500" y="870" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--       建筑物 (背景装饰)                   -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 建筑1 -->
+        <mxCell id="bld1" value="" style="rounded=0;fillColor=#CFD8DC;strokeColor=#90A4AE;strokeWidth=1;gradientColor=#ECEFF1;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="500" width="120" height="320" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="135" y="520" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win2" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="165" y="520" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win3" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="195" y="520" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win4" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="135" y="560" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win5" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="165" y="560" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win6" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="195" y="560" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win7" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="135" y="600" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win8" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="165" y="600" width="20" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld1_win9" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="195" y="600" width="20" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- 建筑2 (高楼) -->
+        <mxCell id="bld2" value="" style="rounded=0;fillColor=#CFD8DC;strokeColor=#90A4AE;strokeWidth=1;gradientColor=#ECEFF1;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="280" y="400" width="100" height="420" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="295" y="420" width="15" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win2" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="320" y="420" width="15" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win3" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="345" y="420" width="15" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win4" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="295" y="450" width="15" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win5" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="320" y="450" width="15" height="15" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld2_win6" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="345" y="450" width="15" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- 建筑3 (右侧) -->
+        <mxCell id="bld3" value="" style="rounded=0;fillColor=#CFD8DC;strokeColor=#90A4AE;strokeWidth=1;gradientColor=#ECEFF1;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="480" width="130" height="340" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1215" y="500" width="18" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win2" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1245" y="500" width="18" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win3" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1275" y="500" width="18" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win4" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1215" y="530" width="18" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win5" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1245" y="530" width="18" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="bld3_win6" value="" style="shape=mxgraph.basic.rect;fillColor=#B3E5FC;strokeColor=#90A4AE;strokeWidth=0.5;opacity=70;" vertex="1" parent="1">
+          <mxGeometry x="1275" y="530" width="18" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--            无人机 (UAV)                   -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 无人机机身 (3D感) -->
+        <mxCell id="uav_body" value="" style="shape=mxgraph.basic.rect;fillColor=#2C5AA0;strokeColor=#1A3A6A;strokeWidth=2;arcSize=30;shadow=1;gradientColor=#42A5F5;gradientDirection=west;" vertex="1" parent="1">
+          <mxGeometry x="670" y="100" width="100" height="40" as="geometry"/>
+        </mxCell>
+        <!-- 无人机头部 -->
+        <mxCell id="uav_nose" value="" style="shape=mxgraph.basic.rect;fillColor=#1A3A6A;strokeColor=none;arcSize=50;" vertex="1" parent="1">
+          <mxGeometry x="770" y="110" width="30" height="20" as="geometry"/>
+        </mxCell>
+        <!-- 无人机文字 -->
+        <mxCell id="uav_label" value="&lt;b style='font-size:11px;color:white'&gt;UAV&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="695" y="108" width="45" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- 旋翼 (4个, 带阴影) -->
+        <mxCell id="rotor1" value="" style="ellipse;fillColor=#5C8BBF;strokeColor=#2C5AA0;strokeWidth=1;opacity=70;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="70" width="60" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="rotor2" value="" style="ellipse;fillColor=#5C8BBF;strokeColor=#2C5AA0;strokeWidth=1;opacity=70;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="770" y="70" width="60" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="rotor3" value="" style="ellipse;fillColor=#5C8BBF;strokeColor=#2C5AA0;strokeWidth=1;opacity=70;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="145" width="60" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="rotor4" value="" style="ellipse;fillColor=#5C8BBF;strokeColor=#2C5AA0;strokeWidth=1;opacity=70;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="770" y="145" width="60" height="25" as="geometry"/>
+        </mxCell>
+        <!-- 旋翼臂 -->
+        <mxCell id="arm1" value="" style="endArrow=none;strokeColor=#2C5AA0;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="640" y="82" as="sourcePoint"/><mxPoint x="690" y="110" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="arm2" value="" style="endArrow=none;strokeColor=#2C5AA0;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="800" y="82" as="sourcePoint"/><mxPoint x="750" y="110" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="arm3" value="" style="endArrow=none;strokeColor=#2C5AA0;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="640" y="158" as="sourcePoint"/><mxPoint x="690" y="140" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="arm4" value="" style="endArrow=none;strokeColor=#2C5AA0;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="800" y="158" as="sourcePoint"/><mxPoint x="750" y="140" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--         FAS 天线阵列                     -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- FAS 基板 (带渐变) -->
+        <mxCell id="fas_base" value="" style="rounded=1;fillColor=#1A8A5C;strokeColor=#0D5C3A;strokeWidth=2;arcSize=8;shadow=1;gradientColor=#4CAF50;gradientDirection=south;" vertex="1" parent="1">
+          <mxGeometry x="610" y="195" width="220" height="28" as="geometry"/>
+        </mxCell>
+        <mxCell id="fas_label" value="&lt;b style='font-size:9px;color:#1A8A5C'&gt;FAS (N=12端口)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="665" y="175" width="110" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- FAS 12个端口 (高光效果) -->
+        <mxCell id="p1" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;shadow=0.5;" vertex="1" parent="1"><mxGeometry x="620" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p2" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="638" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p3" value="" style="ellipse;fillColor=#4CAF50;strokeColor=white;strokeWidth=2;fontSize=5;fontColor=white;fontStyle=1;shadow=1;" vertex="1" parent="1"><mxGeometry x="656" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p4" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="674" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p5" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="692" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p6" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="710" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p7" value="" style="ellipse;fillColor=#4CAF50;strokeColor=white;strokeWidth=2;fontSize=5;fontColor=white;fontStyle=1;shadow=1;" vertex="1" parent="1"><mxGeometry x="728" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p8" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="746" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p9" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="764" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p10" value="" style="ellipse;fillColor=#4CAF50;strokeColor=white;strokeWidth=2;fontSize=5;fontColor=white;fontStyle=1;shadow=1;" vertex="1" parent="1"><mxGeometry x="782" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p11" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="800" y="200" width="13" height="13" as="geometry"/></mxCell>
+        <mxCell id="p12" value="" style="ellipse;fillColor=#90A4AE;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1"><mxGeometry x="818" y="200" width="13" height="13" as="geometry"/></mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--          主动 RIS (建筑物上)              -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- RIS 面板 (带渐变+阴影) -->
+        <mxCell id="ris_panel" value="" style="rounded=1;fillColor=#E65100;strokeColor=#BF360C;strokeWidth=2;arcSize=5;shadow=1;gradientColor=#FF9800;gradientDirection=north;" vertex="1" parent="1">
+          <mxGeometry x="640" y="530" width="180" height="50" as="geometry"/>
+        </mxCell>
+        <!-- RIS 单元格网格 (3D感) -->
+        <mxCell id="ris_cell1" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="650" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell2" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="672" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell3" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="694" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell4" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="716" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell5" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="738" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell6" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="760" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell7" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="782" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell8" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="804" y="538" width="18" height="12" as="geometry"/></mxCell>
+        <!-- 第二行 -->
+        <mxCell id="ris_cell9" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="650" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell10" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="672" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell11" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="694" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell12" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="716" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell13" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="738" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell14" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="760" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell15" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="782" y="555" width="18" height="12" as="geometry"/></mxCell>
+        <mxCell id="ris_cell16" value="" style="rounded=0;fillColor=#FFB74D;strokeColor=#E65100;strokeWidth=0.5;opacity=80;" vertex="1" parent="1"><mxGeometry x="804" y="555" width="18" height="12" as="geometry"/></mxCell>
+
+        <mxCell id="ris_label" value="&lt;b style='font-size:10px;color:#E65100'&gt;主动 RIS (M=64 单元)&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="655" y="510" width="150" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="ris_sub" value="&lt;span style='font-size:8px;color:#BF360C'&gt;信号反射 + 人工噪声&lt;/span&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="675" y="582" width="110" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--        合法用户 (手机图标)                 -->
+        <!-- ═══════════════════════════════════════ -->
+        <!-- 用户1 - 手机 -->
+        <mxCell id="phone1" value="" style="shape=mxgraph.cisco.modems.router;fillColor=#2196F3;strokeColor=#1565C0;strokeWidth=1.5;gradientColor=#64B5F6;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="190" y="740" width="50" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="user1_icon" value="&#x1F4F1;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=28;" vertex="1" parent="1">
+          <mxGeometry x="195" y="745" width="40" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="user1_label" value="&lt;b style='font-size:10px;color:#1565C0'&gt;User 1&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="190" y="815" width="55" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- 用户2 - 手机 -->
+        <mxCell id="phone2" value="" style="shape=mxgraph.cisco.modems.router;fillColor=#2196F3;strokeColor=#1565C0;strokeWidth=1.5;gradientColor=#64B5F6;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="740" width="50" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="user2_icon" value="&#x1F4F1;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=28;" vertex="1" parent="1">
+          <mxGeometry x="1205" y="745" width="40" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="user2_label" value="&lt;b style='font-size:10px;color:#1565C0'&gt;User 2&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="815" width="55" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--        窃听者 (耳机图标)                   -->
+        <!-- ═══════════════════════════════════════ -->
+        <mxCell id="eve_body" value="" style="ellipse;fillColor=#E53935;strokeColor=#B71C1C;strokeWidth=2;gradientColor=#EF5350;gradientDirection=north;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="530" y="740" width="60" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="eve_icon" value="&#x1F3A7;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=28;" vertex="1" parent="1">
+          <mxGeometry x="533" y="743" width="40" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="eve_label" value="&lt;b style='font-size:10px;color:#B71C1C'&gt;Eavesdropper&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="515" y="810" width="90" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--         信号路径 (带弧度)                  -->
+        <!-- ═══════════════════════════════════════ -->
+
+        <!-- FAS → U1 直射 (蓝色实线) -->
+        <mxCell id="sig_u1" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2.5;exitX=0.1;exitY=1;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="fas_base" target="phone1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="350"/>
+              <mxPoint x="300" y="500"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- FAS → U2 直射 (蓝色实线) -->
+        <mxCell id="sig_u2" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2.5;exitX=0.9;exitY=1;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="fas_base" target="phone2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="350"/>
+              <mxPoint x="1250" y="500"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- FAS → E 直射 (红色虚线, 窃听) -->
+        <mxCell id="sig_eve" value="" style="endArrow=classic;strokeColor=#E53935;strokeWidth=2;dashed=1;dashPattern=10 5;exitX=0.3;exitY=1;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="fas_base" target="eve_body">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="580" y="380"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- FAS → RIS (蓝色实线, 上行) -->
+        <mxCell id="sig_ris" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2.5;exitX=0.4;exitY=1;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="fas_base" target="ris_panel">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- RIS → U1 反射 (蓝色实线) -->
+        <mxCell id="ris_u1" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2.5;exitX=0.1;exitY=0;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="ris_panel" target="phone1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="480"/>
+              <mxPoint x="220" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- RIS → U2 反射 (蓝色实线) -->
+        <mxCell id="ris_u2" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2.5;exitX=0.9;exitY=0;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="ris_panel" target="phone2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1100" y="480"/>
+              <mxPoint x="1230" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- RIS → E 干扰 (红色虚线, 人工噪声) -->
+        <mxCell id="ris_eve" value="" style="endArrow=classic;strokeColor=#E53935;strokeWidth=2.5;dashed=1;dashPattern=10 5;exitX=0.2;exitY=1;exitDx=0;exitDy=0;curved=1;shadow=0;" edge="1" parent="1" source="ris_panel" target="eve_body">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--          信道标注 (数学符号)               -->
+        <!-- ═══════════════════════════════════════ -->
+
+        <!-- h^U_{U,p} (UAV→Eve) -->
+        <mxCell id="ch_ue" value="&lt;i style='font-size:10px;color:#E53935'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;U,p&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="555" y="400" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- h^U_{R,k} (RIS→User) -->
+        <mxCell id="ch_rk1" value="&lt;i style='font-size:10px;color:#2196F3'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;R,k&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="520" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ch_rk2" value="&lt;i style='font-size:10px;color:#2196F3'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;R,k&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="520" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- h^U_{U,k} (UAV→User 直射) -->
+        <mxCell id="ch_uk1" value="&lt;i style='font-size:10px;color:#2196F3'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;U,k&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="360" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ch_uk2" value="&lt;i style='font-size:10px;color:#2196F3'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;U,k&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="360" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- h^U_{R,p} (RIS→Eve 干扰) -->
+        <mxCell id="ch_rp" value="&lt;i style='font-size:10px;color:#E53935'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;R,p&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="570" y="580" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- h^U_{U,R} (FAS→RIS) -->
+        <mxCell id="ch_ur" value="&lt;i style='font-size:10px;color:#2196F3'&gt;h&lt;sup&gt;U&lt;/sup&gt;&lt;sub&gt;U,R&lt;/sub&gt;&lt;/i&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=#FFFFFF;opacity=90;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="605" y="380" width="50" height="20" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--         图例 (右下角, 精致)               -->
+        <!-- ═══════════════════════════════════════ -->
+        <mxCell id="legend" value="" style="rounded=1;fillColor=#FFFFFF;strokeColor=#BDBDBD;strokeWidth=1;arcSize=5;shadow=1;opacity=95;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="650" width="150" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_title" value="&lt;b style='font-size:9px'&gt;图例&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="655" width="35" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- LOS -->
+        <mxCell id="leg_los_line" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1370" y="685" as="sourcePoint"/><mxPoint x="1410" y="685" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_los_text" value="&lt;span style='font-size:8px'&gt;LOS&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="678" width="30" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- virtual LOS -->
+        <mxCell id="leg_vlos_line" value="" style="endArrow=classic;strokeColor=#2196F3;strokeWidth=2;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1370" y="710" as="sourcePoint"/><mxPoint x="1410" y="710" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_vlos_text" value="&lt;span style='font-size:8px'&gt;virtual LOS&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="703" width="60" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- Eve link -->
+        <mxCell id="leg_eve_line" value="" style="endArrow=classic;strokeColor=#E53935;strokeWidth=2;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1370" y="735" as="sourcePoint"/><mxPoint x="1410" y="735" as="targetPoint"/></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_eve_text" value="&lt;span style='font-size:8px'&gt;Eavesdropper&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="728" width="75" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- FAS端口 -->
+        <mxCell id="leg_fas_port" value="" style="ellipse;fillColor=#4CAF50;strokeColor=white;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="755" width="10" height="10" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_fas_text" value="&lt;span style='font-size:8px'&gt;FAS Active Port&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="748" width="90" height="15" as="geometry"/>
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--           DRL 框图 (顶部)                 -->
+        <!-- ═══════════════════════════════════════ -->
+        <mxCell id="drl_box" value="" style="rounded=1;fillColor=#F5F5F5;strokeColor=#BDBDBD;strokeWidth=1.5;arcSize=5;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="500" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="drl_title" value="&lt;b style='font-size:10px'&gt;Dual-Agent Twin-TD3&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="560" y="15" width="130" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="drl_a1" value="&lt;span style='font-size:8px'&gt;Agent 1&lt;br&gt;(FAS+RIS)&lt;/span&gt;" style="rounded=1;fillColor=#E3F2FD;strokeColor=#2196F3;strokeWidth=1;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="35" width="100" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="drl_a2" value="&lt;span style='font-size:8px'&gt;Agent 2&lt;br&gt;(UAV)&lt;/span&gt;" style="rounded=1;fillColor=#E8F5E9;strokeColor=#4CAF50;strokeWidth=1;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="35" width="100" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="drl_arrow1" value="" style="endArrow=classic;strokeColor=#666;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="530" y="52" as="sourcePoint"/><mxPoint x="775" y="52" as="targetPoint"/></mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
