@@ -98,7 +98,7 @@ class MiniSystem(object):
         # 干扰相位课程学习: 初始对准窃听者80%，逐渐减少到50%
         self.jam_align_weight = 0.8  # 初始对准权重
         self.jam_align_decay = 0.99995  # 每episode衰减因子 (更慢衰减)
-        self.jam_align_min = 0.5     # 最小对准权重 (保持较高干扰精度)
+        self.jam_align_min = 0.7     # 最小对准权重 (保持较高干扰精度)
         
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
@@ -137,7 +137,7 @@ class MiniSystem(object):
         ris_norm_vec = self.data_manager.read_init_location('RIS_norm_vec', 0)
         ris_coor_sys_z = ris_norm_vec / np.linalg.norm(ris_norm_vec)  # 归一化法线方向
         self.RIS = RIS(coordinate=ris_coordinate, coor_sys_z=ris_coor_sys_z, ant_num=ris_ant_num,
-                       Pr=30, P_J=20, beta=30, sigma=-100)  # Pr=30dBm, P_J=20dBm
+                       Pr=30, P_J=30, beta=30, sigma=-100)  # Pr=30dBm, P_J=30dBm
         
         self.eavesdrop_capacity_array= np.zeros((attacker_num, user_num))
         self.reward_design = reward_design
@@ -228,8 +228,8 @@ class MiniSystem(object):
         self._last_action_1 = action_1
 
         # ========== 速度约束运动模型 ==========
-        # v_max=1.0m/s, dt=0.1s, 单步最大位移=0.1m
-        V_MAX = 1.0   # 最大水平速度 (m/s)
+        # v_max=3.0m/s, dt=0.1s, 单步最大位移=0.3m
+        V_MAX = 3.0   # 最大水平速度 (m/s)
         DT = 0.1      # 仿真步长 (s)
 
         if self.if_movements:
@@ -299,7 +299,7 @@ class MiniSystem(object):
             self.UAV_FAS.fas_active_port = self.UAV_FAS.fas_active_ports[0]  # 主端口(兼容)
 
             # FAS增益（标量），K个端口等功率分配
-            F_total = 1.0 + (G[self.UAV_FAS.fas_num_ports] + 1.0) / 2.0 * 2.0  # [1, 3]
+            F_total = 0.3 + (G[self.UAV_FAS.fas_num_ports] + 1.0) / 2.0 * 0.7  # [0.3, 1.0]
             # 功率硬约束: 总功率 F_total² ≤ P_max_mW
             P_max_linear = 10 ** (P_max_dBm / 10)  # 1000 mW
             if F_total ** 2 > P_max_linear:
@@ -314,9 +314,9 @@ class MiniSystem(object):
             ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
             ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(11)]
 
-            # 从动作中提取干扰比例 η (第1维), 映射到 [0.2, 0.7]
+            # 从动作中提取干扰比例 η (第1维), 映射到 [0.3, 0.8]
             jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
-            jam_ratio = 0.2 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.2, 0.7]
+            jam_ratio = 0.3 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.3, 0.8]
             jam_elements = int(self.RIS.ant_num * jam_ratio)
             jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
@@ -475,12 +475,22 @@ class MiniSystem(object):
             if fas_risks:
                 R_fas = np.mean(fas_risks)
 
-        # === 3. 空间位置奖励: 引导UAV飞向用户中点 ===
+        # === 3. 空间位置奖励: 引导UAV飞向安全加权中点 ===
         user_positions = np.array([u.coordinate[:2] for u in self.user_list])
-        midpoint = np.mean(user_positions, axis=0)
+        attacker_positions = np.array([a.coordinate[:2] for a in self.attacker_list])
         uav_pos = np.array(self.UAV_FAS.coordinate[:2])
-        dist_to_mid = np.linalg.norm(uav_pos - midpoint)
-        R_spatial = 0.5 * max(0, 1 - dist_to_mid / 50)
+
+        # 计算安全加权中点：离窃听者越远的用户，权重越大
+        if len(attacker_positions) > 0:
+            attacker_pos = attacker_positions[0]  # 第一个窃听者
+            dist_to_attacker = np.array([np.linalg.norm(user_pos - attacker_pos) for user_pos in user_positions])
+            weights = dist_to_attacker / (np.sum(dist_to_attacker) + 1e-10)  # 归一化权重
+            target_pos = np.sum(user_positions * weights[:, np.newaxis], axis=0)  # 加权平均
+        else:
+            target_pos = np.mean(user_positions, axis=0)  # 无窃听者时飞向中点
+
+        dist_to_target = np.linalg.norm(uav_pos - target_pos)
+        R_spatial = 0.5 * max(0, 1 - dist_to_target / 50)
 
         # === 4. 功率约束惩罚 ===
         # F²是线性功率增益，P_actual = F² × P_base_mW
@@ -503,22 +513,21 @@ class MiniSystem(object):
         E_p = get_energy_consumption(v_t)
         E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
         E_p_norm = max(0, min(1, E_p_norm))
-        lambda_e = 0.1 if total_secrecy < 0.1 else 0.3
+        lambda_e = 0.05 if total_secrecy < 0.1 else 0.1
         p_e = lambda_e * max(0, total_secrecy) * E_p_norm
 
-        # === 7. 窃听者容量惩罚 (自适应) ===
-        # 窃听越大，惩罚越重：lambda_eve ∈ [0.2, 0.8]
-        avg_eavesdrop = np.mean([max(self.eavesdrop_capacity_array[:, k])
-                                 for k in range(len(self.user_list))])
+        # === 7. 窃听者容量惩罚 (最坏情况) ===
+        # 取所有用户中窃听容量的最大值（最坏情况）
+        max_eavesdrop = np.max(self.eavesdrop_capacity_array)
         # 归一化到[0,1]: 以5bits/s/Hz为参考上限
-        p_eve = min(avg_eavesdrop / 5.0, 1.0)
+        p_eve = min(max_eavesdrop / 5.0, 1.0)
         # 自适应惩罚系数：窃听容量越大，惩罚越重
-        lambda_eve = 0.2 + 0.6 * min(avg_eavesdrop / 3.0, 1.0)
+        lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
 
         # === 组合奖励 ===
         raw_reward = (0.4 * total_secrecy                # 主目标: 保密速率
                       + 0.1 * R_fas                      # FAS辅助安全
-                      + 0.1 * R_spatial                  # 空间引导 (降低权重)
+                      + 0.05 * R_spatial                 # 空间引导 (降低权重，避免轨迹趋同)
                       - 0.1 * p_m                        # 功率约束
                       - 0.5 * p_r                        # 最低安全速率约束
                       - 0.1 * p_e                        # 能耗惩罚
