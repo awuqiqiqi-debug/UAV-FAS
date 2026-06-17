@@ -76,7 +76,8 @@ class Agent(object):
     def __init__(self, alpha, beta, input_dims, tau, env, gamma=0.99,
                  n_actions=2, max_size=1000000, layer1_size=400,
                  layer2_size=300, layer3_size=256, layer4_size=128, batch_size=64,
-                 update_actor_interval=2, noise='AWGN', agent_name='default', load_file=''):
+                 update_actor_interval=2, noise='AWGN', agent_name='default', load_file='',
+                 n_discrete_dims=0):
         self.load_file = load_file
         self.layer1_size = layer1_size
         self.layer2_size = layer2_size
@@ -84,6 +85,7 @@ class Agent(object):
         self.layer4_size = layer4_size
         self.gamma = gamma
         self.tau = tau
+        self.n_discrete_dims = n_discrete_dims
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
         self.learn_step_cntr = 0
@@ -91,7 +93,8 @@ class Agent(object):
 
         self.actor = ActorNetwork(alpha, input_dims, layer1_size,
                                   layer2_size, layer3_size, layer4_size, n_actions=n_actions,
-                                  name='Actor_' + agent_name, chkpt_dir=env.data_manager.store_path)
+                                  name='Actor_' + agent_name, chkpt_dir=env.data_manager.store_path,
+                                  n_discrete_dims=n_discrete_dims)
         self.critic_1 = CriticNetwork(beta, input_dims, layer1_size,
                                     layer2_size, layer3_size, layer4_size, n_actions=n_actions,
                                     name='Critic_1_' + agent_name, chkpt_dir=env.data_manager.store_path)
@@ -101,7 +104,8 @@ class Agent(object):
 
         self.target_actor = ActorNetwork(alpha, input_dims, layer1_size,
                                          layer2_size, layer3_size, layer4_size, n_actions=n_actions,
-                                         name='TargetActor_' + agent_name, chkpt_dir=env.data_manager.store_path)
+                                         name='TargetActor_' + agent_name, chkpt_dir=env.data_manager.store_path,
+                                         n_discrete_dims=n_discrete_dims)
         self.target_critic_1 = CriticNetwork(beta, input_dims, layer1_size,
                                            layer2_size, layer3_size, layer4_size, n_actions=n_actions,
                                            name='TargetCritic_1_' + agent_name, chkpt_dir=env.data_manager.store_path)
@@ -147,6 +151,18 @@ class Agent(object):
 
         target_actions = self.target_actor.forward(new_state)
 
+        # Target Policy Smoothing: 对连续维度加噪正则化，防止Critic过估计
+        if self.n_discrete_dims > 0:
+            noise = T.randn_like(target_actions[:, self.n_discrete_dims:]) * 0.2
+            noise = T.clamp(noise, -0.5, 0.5)
+            smoothed = target_actions[:, self.n_discrete_dims:] + noise
+            smoothed = T.clamp(smoothed, -1.0, 1.0)
+            target_actions = T.cat([target_actions[:, :self.n_discrete_dims], smoothed], dim=-1)
+        else:
+            noise = T.randn_like(target_actions) * 0.2
+            noise = T.clamp(noise, -0.5, 0.5)
+            target_actions = T.clamp(target_actions + noise, -1.0, 1.0)
+
         critic_value_1_ = self.target_critic_1.forward(new_state, target_actions)
         critic_value_2_ = self.target_critic_2.forward(new_state, target_actions)
 
@@ -157,7 +173,7 @@ class Agent(object):
 
         target = []
         for j in range(self.batch_size):
-            target.append(reward[j] + self.gamma*critic_value_[j]*done[j])
+            target.append(reward[j] + self.gamma*critic_value_[j].detach()*done[j])
         target = T.tensor(target).to(self.critic_1.device)
         target = target.view(self.batch_size, 1)
 

@@ -92,8 +92,9 @@ agent_1_param_dic["tau"] = 0.005    # soft update
 agent_1_param_dic["batch_size"] = 80  # 批次大小
 agent_1_param_dic["n_actions"] = system.get_system_action_dim()  # 38维动作空间
 agent_1_param_dic["action_noise_factor"] = 0.3  # 初始噪声
-agent_1_param_dic["memory_max_size"] = 40000  # 经验回放池容量
+agent_1_param_dic["memory_max_size"] = 500000  # 经验回放池容量
 agent_1_param_dic["agent_name"] = "BS_FAS"
+agent_1_param_dic["n_discrete_dims"] = 12  # Gumbel-Softmax端口logits维度
 agent_1_param_dic["layer1_size"] = 1024
 agent_1_param_dic["layer2_size"] = 768
 agent_1_param_dic["layer3_size"] = 512
@@ -108,7 +109,7 @@ agent_2_param_dic["tau"] = 0.005    # soft update
 agent_2_param_dic["batch_size"] = 80  # 批次大小
 agent_2_param_dic["n_actions"] = 2  # 输出2维：水平速度[vx,vy] (高度固定50m)
 agent_2_param_dic["action_noise_factor"] = 0.3  # 初始噪声
-agent_2_param_dic["memory_max_size"] = 40000  # 经验回放池容量
+agent_2_param_dic["memory_max_size"] = 500000  # 经验回放池容量
 agent_2_param_dic["agent_name"] = "UAV"
 agent_2_param_dic["layer1_size"] = 512
 agent_2_param_dic["layer2_size"] = 384
@@ -127,12 +128,13 @@ agent_1 = Agent(
     env         = system,
     batch_size  = agent_1_param_dic["batch_size"],
     layer1_size=agent_1_param_dic["layer1_size"],
-    layer2_size=agent_1_param_dic["layer2_size"], 
+    layer2_size=agent_1_param_dic["layer2_size"],
     layer3_size=agent_1_param_dic["layer3_size"],
     layer4_size=agent_1_param_dic["layer4_size"],
     n_actions   = agent_1_param_dic["n_actions"],
     max_size = agent_1_param_dic["memory_max_size"],
-    agent_name= agent_1_param_dic["agent_name"]
+    agent_name= agent_1_param_dic["agent_name"],
+    n_discrete_dims=agent_1_param_dic["n_discrete_dims"]
 ) 
 
 if SEEDS is not None:

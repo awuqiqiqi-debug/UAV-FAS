@@ -533,7 +533,7 @@ class MiniSystem(object):
                       - 0.1 * p_e                        # 能耗惩罚
                       - lambda_eve * p_eve)              # 窃听者容量惩罚 (自适应)
 
-        return np.tanh(raw_reward)
+        return np.clip(raw_reward, -5.0, 5.0)
 
     def find_optimal_uav_position(self, grid_step=10):
         """

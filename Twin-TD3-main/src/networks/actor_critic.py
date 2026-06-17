@@ -85,7 +85,7 @@ class CriticNetwork(nn.Module):
 
 class ActorNetwork(nn.Module):
     def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, fc3_dims, fc4_dims, n_actions, name,
-                 chkpt_dir, suffix='_TD3'):
+                 chkpt_dir, suffix='_TD3', n_discrete_dims=0):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
@@ -93,6 +93,7 @@ class ActorNetwork(nn.Module):
         self.fc3_dims = fc3_dims
         self.fc4_dims = fc4_dims
         self.n_actions = n_actions
+        self.n_discrete_dims = n_discrete_dims
         self.checkpoint_file = os.path.join(chkpt_dir, name + suffix)
 
         self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
@@ -120,9 +121,18 @@ class ActorNetwork(nn.Module):
         self.bn4 = nn.LayerNorm(self.fc4_dims)
 
         f5 = 0.003
-        self.mu = nn.Linear(self.fc4_dims, self.n_actions)
-        self.mu.weight.data.uniform_(-f3, f3)
-        self.mu.bias.data.uniform_(-f3, f3)
+        if self.n_discrete_dims > 0:
+            self.mu_discrete = nn.Linear(self.fc4_dims, self.n_discrete_dims)
+            self.mu_discrete.weight.data.uniform_(-f5, f5)
+            self.mu_discrete.bias.data.uniform_(-f5, f5)
+            n_continuous = self.n_actions - self.n_discrete_dims
+            self.mu_continuous = nn.Linear(self.fc4_dims, n_continuous)
+            self.mu_continuous.weight.data.uniform_(-f5, f5)
+            self.mu_continuous.bias.data.uniform_(-f5, f5)
+        else:
+            self.mu = nn.Linear(self.fc4_dims, self.n_actions)
+            self.mu.weight.data.uniform_(-f5, f5)
+            self.mu.bias.data.uniform_(-f5, f5)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
@@ -141,9 +151,13 @@ class ActorNetwork(nn.Module):
         x = self.fc4(x)
         x = self.bn4(x)
         x = F.relu(x)
-        x = T.tanh(self.mu(x))
 
-        return x
+        if self.n_discrete_dims > 0:
+            logits = self.mu_discrete(x)
+            continuous = T.tanh(self.mu_continuous(x))
+            return T.cat([logits, continuous], dim=-1)
+        else:
+            return T.tanh(self.mu(x))
 
     def save_checkpoint(self):
         print('... saving checkpoint ...')
@@ -152,6 +166,8 @@ class ActorNetwork(nn.Module):
     def load_checkpoint(self, load_file=''):
         print('... loading checkpoint ...')
         if T.cuda.is_available():
-            self.load_state_dict(T.load(load_file))
+            state_dict = T.load(load_file)
         else:
-            self.load_state_dict(T.load(load_file, map_location=T.device('cpu')))
+            state_dict = T.load(load_file, map_location=T.device('cpu'))
+        # strict=False: 允许新旧架构不完全匹配 (mu→mu_discrete/mu_continuous)
+        self.load_state_dict(state_dict, strict=False)

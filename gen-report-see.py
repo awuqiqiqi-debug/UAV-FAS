@@ -1,7 +1,7 @@
 """生成td3_see通用的学术论文级HTML训练报告"""
 import json, scipy.io as sio, numpy as np, csv
 
-mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_14'
+mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_18'
 
 rewards_csv = f'{mat_dir}/training_rewards.csv'
 episodes, scores = [], []
