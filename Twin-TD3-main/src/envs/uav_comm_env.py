@@ -1,4 +1,4 @@
-#%matplotlib inline
+# %matplotlib inline
 import numpy as np
 import math
 import torch
@@ -44,6 +44,7 @@ g = 9.81  # 重力加速度 (m/s²)
 T_hover = m * g  # 悬停所需推力 (N)
 v_0 = (T_hover / (A_r * 2 * rho)) ** 0.5  # 悬停诱导速度 (m/s)
 
+
 def get_energy_consumption(v_t):
     """
     计算无人机能耗 (基于旋翼无人机功率消耗模型)
@@ -54,15 +55,17 @@ def get_energy_consumption(v_t):
     - Pbody: 机身阻力功率
     """
     # 桨尖风阻功率 + 机身阻力功率
-    energy_1 = P_0 + 3 * P_0 * (abs(v_t)) ** 2 / (U_tip ** 2) + 0.5 * d_0 * rho * s * A_r * (abs(v_t))**3
+    energy_1 = P_0 + 3 * P_0 * (abs(v_t)) ** 2 / (U_tip ** 2) + 0.5 * d_0 * rho * s * A_r * (abs(v_t)) ** 3
     # 旋翼诱导功率 (考虑前飞修正)
-    energy_2 = P_i * ((1 + (abs(v_t) ** 4) / (4 * (v_0 ** 4))) ** 0.5 - (abs(v_t) ** 2) / (2 * (v_0 **2))) ** 0.5
+    energy_2 = P_i * ((1 + (abs(v_t) ** 4) / (4 * (v_0 ** 4))) ** 0.5 - (abs(v_t) ** 2) / (2 * (v_0 ** 2))) ** 0.5
     # 总能耗 = 功率 × 时间
     energy = delta_time * (energy_1 + energy_2)
     return energy
 
+
 ENERGY_MIN = get_energy_consumption(D_max)  # 最小能耗 (最大速度)
 ENERGY_MAX = get_energy_consumption(0)  # 最大能耗 (悬停)
+
 
 ######################################################
 
@@ -77,10 +80,11 @@ class MiniSystem(object):
     - 支持多个用户和攻击者
     - 毫米波信道模型
     """
-    def __init__(self, UAV_num = 1, user_num = 2, attacker_num = 1, fre = 28e9, \
-                 fas_ant_num=12, ris_ant_num=64, if_dir_link = 1, if_with_FAS = True, \
-                 if_move_users = False, if_movements = True, reverse_x_y = (False, False), \
-                 if_UAV_pos_state = True, reward_design = 'ssr', project_name = None, step_num=100, existing_path=None, \
+
+    def __init__(self, UAV_num=1, user_num=2, attacker_num=1, fre=28e9, \
+                 fas_ant_num=12, ris_ant_num=64, if_dir_link=1, if_with_FAS=True, \
+                 if_move_users=False, if_movements=True, reverse_x_y=(False, False), \
+                 if_UAV_pos_state=True, reward_design='ssr', project_name=None, step_num=100, existing_path=None, \
                  num_active_ports=2):
 
         self.if_dir_link = if_dir_link
@@ -91,19 +95,23 @@ class MiniSystem(object):
         self.reverse_x_y = reverse_x_y
         self.user_num = user_num
         self.attacker_num = attacker_num
-        self.border = [(-50,50), (-50,50)]  # UAV飞行边界: X:-50~50, Y:-50~50
+        self.border = [(-50, 50), (-50, 50)]  # UAV飞行边界: X:-50~50, Y:-50~50
         self.ris_ant_num = ris_ant_num  # RIS反射单元数量
         self.num_active_ports = num_active_ports  # 同时激活的FAS端口数 (2~3)
         self.training = True  # 训练/推理模式切换
-        # 干扰相位课程学习: 初始对准窃听者80%，逐渐减少到50%
-        self.jam_align_weight = 0.8  # 初始对准权重
-        self.jam_align_decay = 0.99995  # 每episode衰减因子 (更慢衰减)
-        self.jam_align_min = 0.7     # 最小对准权重 (保持较高干扰精度)
-        
+        # 干扰相位课程学习: 初始20%对准，逐步增长到50%
+        # 初期以随机干扰为主，让Agent自主学习；后期逐步引入启发式辅助
+        self.jam_align_weight = 0.2  # 初始: 20%对准+80%Agent自主
+        self.jam_align_decay = 0.9999  # 增长因子 (衰减<1表示每步增长)
+        self.jam_align_max = 0.5  # 最大对准权重: 最多50%对准窃听者
+
         # 初始化数据管理器
-        self.data_manager = DataManager(file_path='./data', project_name = project_name, existing_path = existing_path, \
-        store_list = ['beamforming_matrix', 'reflecting_coefficient', 'UAV_state', 'user_capacity', 'secure_capacity', 'attaker_capacity','F_power', 'reward','UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase', 'FAS_active_port'])
-        
+        self.data_manager = DataManager(file_path='./data', project_name=project_name, existing_path=existing_path, \
+                                        store_list=['beamforming_matrix', 'reflecting_coefficient', 'UAV_state',
+                                                    'user_capacity', 'secure_capacity', 'attaker_capacity', 'F_power',
+                                                    'reward', 'UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase',
+                                                    'FAS_active_port'])
+
         # 初始化 UAV-FAS 实体 (FAS作为唯一发射天线)
         self.UAV_FAS = UAV_FAS(
             coordinate=self.data_manager.read_init_location('UAV', 0),
@@ -130,7 +138,7 @@ class MiniSystem(object):
             attacker.capacity = np.zeros((user_num))
             attacker.noise_power = -114
             self.attacker_list.append(attacker)
-        
+
         # 初始化RIS反射单元（地面固定）
         # 从Excel文件读取RIS位置
         ris_coordinate = self.data_manager.read_init_location('RIS', 0)
@@ -138,11 +146,11 @@ class MiniSystem(object):
         ris_coor_sys_z = ris_norm_vec / np.linalg.norm(ris_norm_vec)  # 归一化法线方向
         self.RIS = RIS(coordinate=ris_coordinate, coor_sys_z=ris_coor_sys_z, ant_num=ris_ant_num,
                        Pr=30, P_J=30, beta=30, sigma=-100)  # Pr=30dBm, P_J=30dBm
-        
-        self.eavesdrop_capacity_array= np.zeros((attacker_num, user_num))
+
+        self.eavesdrop_capacity_array = np.zeros((attacker_num, user_num))
         self.reward_design = reward_design
         self.step_num = step_num
-        
+
         # 初始化信道
         # 直射链路：UAV-FAS → 用户/攻击者
         self.h_U_k = []  # UAV到用户的直射信道
@@ -169,14 +177,18 @@ class MiniSystem(object):
         # 初始化RIS双路径反射相位矩阵
         # Phi_signal：反射信号到用户的相位矩阵
         # Phi_jam：生成人工噪声干扰窃听者的相位矩阵
-        self.RIS.Phi_signal = self.RIS.Phi   # 路径①：用户增强（信号反射）
-        self.RIS.Phi_jam = self.RIS.Phi      # 路径②：攻击者干扰（人工噪声）
+        self.RIS.Phi_signal = self.RIS.Phi  # 路径①：用户增强（信号反射）
+        self.RIS.Phi_jam = self.RIS.Phi  # 路径②：攻击者干扰（人工噪声）
 
         # 初始化人工噪声功率（首次使用前必须存在）
         self.an_power = dB_to_normal(-114) * 1e-3
 
+        # 初始化用户级波束成形权重 (K, num_active_ports)
+        # 每个用户在各活跃端口上的权重，softmax归一化
+        self.user_beamforming_weights = np.ones((self.user_num, self.num_active_ports)) / self.num_active_ports
+
         self.update_channel_capacity()
-        self.render_obj = Render(self)      
+        self.render_obj = Render(self)
 
     def reset(self):
         """重置系统状态"""
@@ -197,15 +209,18 @@ class MiniSystem(object):
         self.UAV_FAS.F = 1.0
         self.UAV_FAS.F_Pmax = P_max_dBm
 
+        # 重置用户级波束成形权重 (K, num_active_ports)
+        self.user_beamforming_weights = np.ones((self.user_num, self.num_active_ports)) / self.num_active_ports
+
         # 重置RIS反射相位矩阵
-        self.RIS.Phi = np.asmatrix(np.diag(np.ones(self.RIS.ant_num, dtype=complex)), dtype = complex)
+        self.RIS.Phi = np.asmatrix(np.diag(np.ones(self.RIS.ant_num, dtype=complex)), dtype=complex)
 
         # 重置时间索引
         self.render_obj.t_index = 0
 
         # 重置RIS反射相位矩阵
         self.RIS.Phi_signal = self.RIS.Phi  # 路径①：用户增强
-        self.RIS.Phi_jam = self.RIS.Phi     # 路径②：攻击者干扰
+        self.RIS.Phi_jam = self.RIS.Phi  # 路径②：攻击者干扰
 
         # 重置 CSI
         for h in self.h_U_k + self.h_U_p + [self.h_UR] + self.h_R_k + self.h_R_p:
@@ -214,23 +229,24 @@ class MiniSystem(object):
         # 重置容量
         self.update_channel_capacity()
 
-    def step(self, action_0 = 0, action_1 = 0, action_2 = 0, G = 0, Phi = 0, set_pos_x = 0, set_pos_y = 0, set_pos_z = 0):
+    def step(self, action_0=0, action_1=0, action_2=0, G=0, Phi=0, user_weights=None, set_pos_x=0, set_pos_y=0,
+             set_pos_z=0):
         """执行一步模拟"""
         self.render_obj.t_index += 1
 
         # 更新用户位置
         if self.if_move_users and self.user_num > 1:
-            self.user_list[0].update_coordinate(0.2, -1/2 * math.pi)
-            self.user_list[1].update_coordinate(0.2, -1/2 * math.pi)
+            self.user_list[0].update_coordinate(0.2, -1 / 2 * math.pi)
+            self.user_list[1].update_coordinate(0.2, -1 / 2 * math.pi)
 
         # 保存当前动作供奖励函数使用
         self._last_action_0 = action_0
         self._last_action_1 = action_1
 
         # ========== 速度约束运动模型 ==========
-        # v_max=3.0m/s, dt=0.1s, 单步最大位移=0.3m
-        V_MAX = 3.0   # 最大水平速度 (m/s)
-        DT = 0.1      # 仿真步长 (s)
+        # v_max=1.0m/s, dt=0.1s, 单步最大位移=0.1m
+        V_MAX = 1.0  # 最大水平速度 (m/s)，与训练脚本统一
+        DT = 0.1  # 仿真步长 (s)
 
         if self.if_movements:
             # Actor输出速度 [-1,1] → 实际速度 [-v_max, v_max]
@@ -273,10 +289,10 @@ class MiniSystem(object):
         # 更新信道 CSI（包括直射链路和RIS反射链路）
         for h in self.h_U_k + self.h_U_p + [self.h_UR] + self.h_R_k + self.h_R_p:
             h.update_CSI()
-            
+
         if self.if_dir_link == 0:
             for h in self.h_U_k + self.h_U_p:
-                h.channel_matrix = np.asmatrix(np.zeros(shape = np.shape(h.channel_matrix)), dtype=complex)
+                h.channel_matrix = np.asmatrix(np.zeros(shape=np.shape(h.channel_matrix)), dtype=complex)
 
         # 更新FAS波束成形矩阵和RIS反射相位
         # 动作解析：38维 = 13维FAS (12端口选择 + 1增益) + 25维RIS (1β + 24相位)
@@ -287,8 +303,11 @@ class MiniSystem(object):
             # ====== 端口选择：Gumbel-Softmax + Top-K (2~3端口) ======
             port_logits_tensor = torch.tensor(G[:self.UAV_FAS.fas_num_ports], dtype=torch.float)
             if self.training:
-                # 训练时: Gumbel-Softmax近似argmax，可微分
-                port_probs = F.gumbel_softmax(port_logits_tensor, tau=0.5, hard=False)
+                # 课程学习: τ从1.0衰减到0.1，逐步从随机→确定性选择
+                if not hasattr(self, '_gumbel_tau'):
+                    self._gumbel_tau = 1.0  # 初始温度
+                self._gumbel_tau = max(0.1, self._gumbel_tau * 0.9995)  # 每步衰减
+                port_probs = F.gumbel_softmax(port_logits_tensor, tau=self._gumbel_tau, hard=False)
                 # 选择概率最高的K个端口
                 _, topk_indices = torch.topk(port_probs, self.num_active_ports)
             else:
@@ -306,17 +325,27 @@ class MiniSystem(object):
                 F_total = np.sqrt(P_max_linear)
             self.UAV_FAS.F = F_total / math.sqrt(self.num_active_ports)  # 每端口功率 = F_total² / K
 
+            # ====== 用户级波束成形权重 (K×num_active_ports) ======
+            if user_weights is not None and len(user_weights) == self.user_num * self.num_active_ports:
+                user_weights_raw = np.array(user_weights).reshape(self.user_num, self.num_active_ports)
+                # softmax归一化: 每个用户的权重和为1
+                for k in range(self.user_num):
+                    exp_w = np.exp(user_weights_raw[k] - np.max(user_weights_raw[k]))  # 数值稳定
+                    self.user_beamforming_weights[k] = exp_w / (exp_w.sum() + 1e-10)
+            # else: 保持默认均匀权重
+
             # ====== RIS有源放大 + 相位优化（Agent控制） ======
             # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2:14]=信号相位, Phi[14:26]=干扰相位
 
             # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(11)]
-            BETA_MAX = 40.0
+            BETA_MAX = 5.0  # 降低上限: 从40降到5，避免干扰功率过大
             ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
-            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(11)]
+            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(10)]
 
-            # 从动作中提取干扰比例 η (第1维), 映射到 [0.3, 0.8]
+            # 从动作中提取干扰比例 η (第1维), 映射到 [0.2, 0.5]
+            # 降低干扰比例上限: 从0.8降到0.5，避免过多元件用于干扰
             jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
-            jam_ratio = 0.3 + (jam_ratio_raw + 1.0) / 2.0 * 0.5  # [0.3, 0.8]
+            jam_ratio = 0.2 + (jam_ratio_raw + 1.0) / 2.0 * 0.3  # [0.2, 0.5]
             jam_elements = int(self.RIS.ant_num * jam_ratio)
             jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
@@ -342,13 +371,19 @@ class MiniSystem(object):
             h_UR_active = h_UR_arr[:, active_port_local]  # (N_ris,)
             eve_channel_phase = np.angle(h_R_p_arr * h_UR_active)  # 窃听者信道相位
 
+            # 课程学习: 对准权重从0.2逐步增长到0.5
+            growth = 2.0 - self.jam_align_decay  # 1.0001
+            if self.jam_align_weight < self.jam_align_max:
+                self.jam_align_weight = min(self.jam_align_max,
+                                            self.jam_align_weight * growth)
+
             # Agent相位 + 对准相位的加权混合
             jam_agent_phase = np.tile(jam_phases, jam_elements // 12 + 1)[:jam_elements]  # Agent输出
-            jam_align_phase = -eve_channel_phase[reflect_elements:reflect_elements+jam_elements]  # 对准窃听者
+            jam_align_phase = -eve_channel_phase[reflect_elements:reflect_elements + jam_elements]  # 对准窃听者
             jam_mixed_phase = (1 - self.jam_align_weight) * jam_agent_phase + self.jam_align_weight * jam_align_phase
 
             jam_full = np.zeros(self.RIS.ant_num, dtype=complex)
-            jam_full[reflect_elements:reflect_elements+jam_elements] = np.exp(1j * jam_mixed_phase * np.pi)
+            jam_full[reflect_elements:reflect_elements + jam_elements] = np.exp(1j * jam_mixed_phase * np.pi)
             Phi_jam_mat = np.asmatrix(np.diag(jam_full), dtype=complex)
 
             # 有源放大: β × Φ (参考 ris_functions-jin: beta[i] = sqrt(1+10*rand))
@@ -360,12 +395,13 @@ class MiniSystem(object):
             # 构建完整放大矩阵 (64×64对角)
             amp_full = np.zeros((self.RIS.ant_num, self.RIS.ant_num), dtype=complex)
             amp_full[:reflect_elements, :reflect_elements] = np.asarray(beta_signal)
-            amp_full[reflect_elements:reflect_elements+jam_elements, reflect_elements:reflect_elements+jam_elements] = np.asarray(beta_jam)
+            amp_full[reflect_elements:reflect_elements + jam_elements,
+            reflect_elements:reflect_elements + jam_elements] = np.asarray(beta_jam)
             amp_diag = np.asmatrix(amp_full, dtype=complex)
 
             # 应用放大: θ = β × Φ
             self.RIS.Phi_signal = amp_diag @ Phi_signal_mat  # 信号: 放大给用户
-            self.RIS.Phi_jam = amp_diag @ Phi_jam_mat        # 干扰: 放大干扰窃听者
+            self.RIS.Phi_jam = amp_diag @ Phi_jam_mat  # 干扰: 放大干扰窃听者
             self.RIS.Phi = self.RIS.Phi_signal
 
             # RIS功率约束 (参考 FrisModule: limit_power)
@@ -374,7 +410,7 @@ class MiniSystem(object):
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             # 使用活跃端口的信道
             active_port = self.UAV_FAS.fas_active_port
-            h_UR_active = h_UR[:, active_port:active_port+1]  # (N_ris, 1)
+            h_UR_active = h_UR[:, active_port:active_port + 1]  # (N_ris, 1)
 
             # 反射功率: ||θ_R @ h_UR_active||² × F²
             P_reflect = 0
@@ -387,7 +423,8 @@ class MiniSystem(object):
             P_jam = np.linalg.norm(Phi_J @ h_UR_active) ** 2 * self.UAV_FAS.F ** 2
 
             # 热噪声功率
-            P_noise = (np.linalg.norm(Phi_R, 'fro') ** 2 + np.linalg.norm(Phi_J, 'fro') ** 2) * dB_to_normal(-114) * 1e-3
+            P_noise = (np.linalg.norm(Phi_R, 'fro') ** 2 + np.linalg.norm(Phi_J, 'fro') ** 2) * dB_to_normal(
+                -114) * 1e-3
 
             P_RIS_total = P_reflect + P_jam + P_noise
 
@@ -408,13 +445,13 @@ class MiniSystem(object):
 
         # 更新信道容量
         self.update_channel_capacity()
-        
+
         # 存储系统状态
         self.store_current_system_sate()
-        
+
         # 获取新状态
         new_state = self.observe()
-        
+
         # 获取奖励 (已在reward()中包含能耗惩罚和边界检查)
         reward = self.reward()
 
@@ -427,17 +464,17 @@ class MiniSystem(object):
         if y < self.border[1][0] or y > self.border[1][1]:
             done = True
             reward -= 0.3  # 轻度边界惩罚
-        
-        self.data_manager.store_data([reward],'reward')
+
+        self.data_manager.store_data([reward], 'reward')
 
         # 存储RIS相位数据
         if self.if_with_FAS:
             # RIS信号反射相位 (归一化到[-1,1])
             signal_phase = np.angle(np.diag(np.asarray(self.RIS.Phi_signal))).tolist()
-            self.data_manager.store_data([np.mean(signal_phase)/math.pi], 'RIS_signal_phase')
+            self.data_manager.store_data([np.mean(signal_phase) / math.pi], 'RIS_signal_phase')
             # RIS干扰相位 (归一化到[-1,1])
             jam_phase = np.angle(np.diag(np.asarray(self.RIS.Phi_jam))).tolist()
-            self.data_manager.store_data([np.mean(jam_phase)/math.pi], 'RIS_jam_phase')
+            self.data_manager.store_data([np.mean(jam_phase) / math.pi], 'RIS_jam_phase')
             # FAS活跃端口号
             self.data_manager.store_data([self.UAV_FAS.fas_active_port], 'FAS_active_port')
 
@@ -490,7 +527,9 @@ class MiniSystem(object):
             target_pos = np.mean(user_positions, axis=0)  # 无窃听者时飞向中点
 
         dist_to_target = np.linalg.norm(uav_pos - target_pos)
-        R_spatial = 0.5 * max(0, 1 - dist_to_target / 50)
+        # 空间引导: 距离目标越近奖励越高，最大1.0
+        # 使用指数衰减替代线性，近距离梯度更大
+        R_spatial = max(0, 1 - dist_to_target / 50)  # [0, 1]
 
         # === 4. 功率约束惩罚 ===
         # F²是线性功率增益，P_actual = F² × P_base_mW
@@ -508,13 +547,14 @@ class MiniSystem(object):
             if sk < R_th:
                 p_r += (R_th - sk) / R_th
 
-        # === 6. 能耗惩罚 (自适应) ===
+        # === 6. 能耗惩罚 (降低权重，避免抑制UAV移动) ===
         v_t = getattr(self.UAV_FAS, 'v_t', 0)
         E_p = get_energy_consumption(v_t)
         E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
         E_p_norm = max(0, min(1, E_p_norm))
-        lambda_e = 0.05 if total_secrecy < 0.1 else 0.1
-        p_e = lambda_e * max(0, total_secrecy) * E_p_norm
+        # 降低能耗惩罚系数: 从0.1降到0.03，避免Agent学到"不动=低能耗=高奖励"
+        lambda_e = 0.03
+        p_e = lambda_e * E_p_norm
 
         # === 7. 窃听者容量惩罚 (最坏情况) ===
         # 取所有用户中窃听容量的最大值（最坏情况）
@@ -525,13 +565,13 @@ class MiniSystem(object):
         lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
 
         # === 组合奖励 ===
-        raw_reward = (0.4 * total_secrecy                # 主目标: 保密速率
-                      + 0.1 * R_fas                      # FAS辅助安全
-                      + 0.05 * R_spatial                 # 空间引导 (降低权重，避免轨迹趋同)
-                      - 0.1 * p_m                        # 功率约束
-                      - 0.5 * p_r                        # 最低安全速率约束
-                      - 0.1 * p_e                        # 能耗惩罚
-                      - lambda_eve * p_eve)              # 窃听者容量惩罚 (自适应)
+        raw_reward = (0.4 * total_secrecy  # 主目标: 保密速率
+                      + 0.1 * R_fas  # FAS辅助安全
+                      + 0.15 * R_spatial  # 空间引导 (提高权重，引导UAV飞向安全位置)
+                      - 0.1 * p_m  # 功率约束
+                      - 0.5 * p_r  # 最低安全速率约束
+                      - 0.1 * p_e  # 能耗惩罚
+                      - lambda_eve * p_eve)  # 窃听者容量惩罚 (自适应)
 
         return np.clip(raw_reward, -5.0, 5.0)
 
@@ -562,7 +602,7 @@ class MiniSystem(object):
                 # 计算安全容量
                 self.update_channel_capacity()
                 total_sec = sum(max(0, u.capacity - max(self.eavesdrop_capacity_array[:, u.index]))
-                               for u in self.user_list)
+                                for u in self.user_list)
 
                 if total_sec > best_sec:
                     best_sec = total_sec
@@ -572,7 +612,7 @@ class MiniSystem(object):
         self.UAV_FAS.coordinate = original_pos
 
         return best_pos, best_sec
-    
+
     def observe(self):
         """获取系统状态观测 (89维)
         状态包含：
@@ -594,20 +634,20 @@ class MiniSystem(object):
 
         # 系统状态信息 (14维)
         system_state = [
-            self.UAV_FAS.fas_num_ports / 16.0,     # FAS端口数归一化
-            self.RIS.ant_num / 64.0,                   # RIS单元数归一化
-            self.user_num / 4.0,                       # 用户数归一化
-            self.attacker_num / 2.0,                   # 窃听者数归一化
-            2.2 / 4.0,                                 # αur归一化
-            2.2 / 4.0,                                 # αul归一化 (纯LoS)
-            2.8 / 4.0,                                 # αr归一化
-            (sigma_n + 120) / 40.0,                    # 噪声功率归一化
-            P_max_dBm / 40.0,                          # 最大功率归一化
-            D_max / 1.0,                               # 最大移动距离归一化
-            delta_t / 1.0,                             # 时隙时长归一化
-            self.UAV_FAS.coordinate[2] / 100.0,     # UAV高度归一化
-            self.UAV_FAS.fas_active_port / 12.0,    # 当前端口归一化
-            0.0,                                        # 保留
+            self.UAV_FAS.fas_num_ports / 16.0,  # FAS端口数归一化
+            self.RIS.ant_num / 64.0,  # RIS单元数归一化
+            self.user_num / 4.0,  # 用户数归一化
+            self.attacker_num / 2.0,  # 窃听者数归一化
+            2.2 / 4.0,  # αur归一化
+            2.2 / 4.0,  # αul归一化 (纯LoS)
+            2.8 / 4.0,  # αr归一化
+            (sigma_n + 120) / 40.0,  # 噪声功率归一化
+            P_max_dBm / 40.0,  # 最大功率归一化
+            D_max / 1.0,  # 最大移动距离归一化
+            delta_t / 1.0,  # 时隙时长归一化
+            self.UAV_FAS.coordinate[2] / 100.0,  # UAV高度归一化
+            self.UAV_FAS.fas_active_port / 12.0,  # 当前端口归一化
+            0.0,  # 保留
         ]
 
         return port_channel_list + UAV_position_list + system_state
@@ -620,7 +660,7 @@ class MiniSystem(object):
         self.data_manager.store_data(row_data, 'beamforming_matrix')
 
         # 存储RIS反射相位矩阵
-        row_data = list(np.array(np.reshape(diag(self.RIS.Phi), (1,-1)))[0,:])
+        row_data = list(np.array(np.reshape(diag(self.RIS.Phi), (1, -1)))[0, :])
         self.data_manager.store_data(row_data, 'reflecting_coefficient')
 
         # 存储 UAV 状态
@@ -630,7 +670,7 @@ class MiniSystem(object):
         # 存储功率信息
         row_data = [self.UAV_FAS.F ** 2, self.UAV_FAS.F_Pmax]
         self.data_manager.store_data(row_data, 'F_power')
-        
+
         # 存储用户容量
         row_data = []
         for user in self.user_list:
@@ -678,8 +718,8 @@ class MiniSystem(object):
         有源RIS: 每个反射单元有放大增益 beta_i
         amp_gains: 放大增益对角矩阵 (N_ris, N_ris)，None时使用self.RIS.Phi中的增益
         """
-        h_R_a = np.asarray(h_R)            # (1, N_ris)
-        Phi_a = np.asarray(ris_phi)        # (N_ris, N_ris)
+        h_R_a = np.asarray(h_R)  # (1, N_ris)
+        Phi_a = np.asarray(ris_phi)  # (N_ris, N_ris)
         h_UR_a = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
 
         # 有源RIS放大增益: 使用step()中设置的统一增益
@@ -687,65 +727,70 @@ class MiniSystem(object):
             amp_gains = np.diag(self.RIS.amplification_gains)  # (N_ris, N_ris)
 
         # 有源反射: h_R @ diag(beta) @ Phi @ h_UR
-        return h_R_a @ amp_gains @ Phi_a @ h_UR_a      # (1, N_FAS)
+        return h_R_a @ amp_gains @ Phi_a @ h_UR_a  # (1, N_FAS)
 
     def calculate_comprehensive_channel_of_attacker_p(self, p):
-        """计算攻击者p的综合信道 (标量，基于多个活跃端口)"""
+        """计算攻击者p的综合信道 (标量，基于多个活跃端口)
+        注意: Phi_signal 已包含 β 放大，不再额外乘 amp_gains
+        """
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
         if self.if_with_FAS:
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
-            Phi_signal = np.asarray(self.RIS.Phi_signal)
-            amp_gains = np.diag(self.RIS.amplification_gains)
+            Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
             H_eff = 0
             for port in active_ports:
                 h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]  # 标量
                 h_UR_active = h_UR[:, port]  # (N_ris,)
-                H_reflect = h_R_p @ amp_gains @ Phi_signal @ h_UR_active  # 标量
+                H_reflect = h_R_p @ Phi_signal @ h_UR_active  # 标量 (不再乘amp_gains)
                 H_eff += h_d + H_reflect
             return np.array([[H_eff]])  # (1, 1)
         else:
-            return np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0]:active_ports[0]+1, :]
+            return np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0]:active_ports[0] + 1, :]
 
     def calculate_comprehensive_channel_of_user_k(self, k):
-        """计算用户k的综合信道 (标量，基于多个活跃端口)"""
+        """计算用户k的综合信道 (标量，基于多个活跃端口)
+        注意: Phi_signal 已包含 β 放大，不再额外乘 amp_gains
+        """
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
         if self.if_with_FAS:
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
-            Phi_signal = np.asarray(self.RIS.Phi_signal)
-            amp_gains = np.diag(self.RIS.amplification_gains)
+            Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
             H_eff = 0
             for port in active_ports:
                 h_d = np.asarray(self.h_U_k[k].channel_matrix)[port, 0]  # 标量
                 h_UR_active = h_UR[:, port]  # (N_ris,)
-                H_reflect = h_R_k @ amp_gains @ Phi_signal @ h_UR_active  # 标量
+                H_reflect = h_R_k @ Phi_signal @ h_UR_active  # 标量 (不再乘amp_gains)
                 H_eff += h_d + H_reflect
             return np.array([[H_eff]])  # (1, 1)
         else:
-            return np.asarray(self.h_U_k[k].channel_matrix)[active_ports[0]:active_ports[0]+1, :]
+            return np.asarray(self.h_U_k[k].channel_matrix)[active_ports[0]:active_ports[0] + 1, :]
 
     def calculate_capacity_of_user_k(self, k):
-        """计算用户k的信道容量（多端口等功率分配）"""
+        """计算用户k的信道容量（用户级波束成形）
+
+        信号模型: 用户k收到的信号 = Σ_i w_k[i] × (h_d_i + H_reflect_i) × F × s_k
+        其中 w_k[i] 是用户k在端口i上的波束成形权重
+        """
         noise_power = self.user_list[k].noise_power
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
+        w_k = self.user_beamforming_weights[k]  # (num_active_ports,) 用户k的波束权重
 
         if self.if_with_FAS:
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
             Phi_signal = np.asarray(self.RIS.Phi_signal)
-            amp_gains = np.diag(self.RIS.amplification_gains)
-            # 多端口联合信道: H_eff = Σ_i (h_d_i + H_reflect_i) × F_port_i
+            # 用户k的等效信道: Σ_i w_k[i] × (h_d_i + H_reflect_i) × F
             H_eff = 0
-            for port in active_ports:
+            for i, port in enumerate(active_ports):
                 h_d = np.asarray(self.h_U_k[k].channel_matrix)[port, 0]
                 h_UR_active = h_UR[:, port]
-                H_reflect = h_R_k @ amp_gains @ Phi_signal @ h_UR_active
-                H_eff += (h_d + H_reflect) * self.UAV_FAS.F
+                H_reflect = h_R_k @ Phi_signal @ h_UR_active  # Phi_signal已含β
+                H_eff += w_k[i] * (h_d + H_reflect) * self.UAV_FAS.F
         else:
             H_eff = np.asarray(self.h_U_k[k].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F
 
-        # 无自干扰项（纯LoS，FAS每次多端口等功率分配，无多用户同端口干扰）
         alpha_k = abs(H_eff) ** 2
         beta_k = dB_to_normal(noise_power) * 1e-3
         return math.log10(1 + alpha_k / beta_k)
@@ -753,12 +798,18 @@ class MiniSystem(object):
     def calculate_capacity_array_of_attacker_p(self, p):
         """计算攻击者p对各用户的窃听容量（按用户分别计算）
 
-        对每个用户k，窃听者的等效信道考虑:
-        - 直射路径: h_U_p[p] (UAV→窃听者)
-        - RIS反射路径: h_R_k[k] @ Phi_signal @ h_UR (经RIS优化后→用户k方向)
-        - 干扰噪声: h_R_p @ Phi_jam @ h_UR (RIS干扰)
+        多用户MIMO窃听模型:
+        UAV发射: x = Σ_k w_k × s_k (每个用户有独立波束成形向量w_k)
 
-        不同用户的RIS→用户信道不同，导致窃听者对不同用户的窃听容量不同。
+        窃听者窃听用户k时:
+        分子(有用信号): |Σ_i w_k[i] × (h_d_i + h_R_p·Φ·h_UR_i)|² × F²
+          → 依赖用户k的波束权重w_k → 不同用户窃听容量不同
+
+        分母(干扰+噪声):
+          N0 + Σ_{j≠k} |Σ_i w_j[i] × (h_d_i + h_R_p·Φ·h_UR_i)|² × F²  (其他用户干扰)
+            + |h_R_p · Φ_jam · h_UR|²  (RIS人工噪声)
+
+        Φ_signal 已包含 β 放大，不再额外乘 amp_gains
         """
         K = len(self.user_list)
         noise_power = self.attacker_list[p].noise_power
@@ -768,30 +819,46 @@ class MiniSystem(object):
         for k in range(K):
             if self.if_with_FAS:
                 h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
-                h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
                 h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
-                Phi_signal = np.asarray(self.RIS.Phi_signal)
-                Phi_jam = np.asarray(self.RIS.Phi_jam)
-                amp_gains = np.diag(self.RIS.amplification_gains)
+                Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
+                Phi_jam = np.asarray(self.RIS.Phi_jam)  # 已含β
+                w_k = self.user_beamforming_weights[k]  # (num_active_ports,)
 
-                H_eff = 0
-                jam_power_total = 0
-                for port in active_ports:
+                # === 分子: 窃听用户k的信号 (用w_k) ===
+                signal_power_k = 0
+                for i, port in enumerate(active_ports):
                     h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
                     h_UR_active = h_UR[:, port]
-                    # 反射路径使用用户k的RIS→用户信道（区分不同用户）
-                    H_reflect = h_R_k @ amp_gains @ Phi_signal @ h_UR_active
-                    H_eff += (h_d + H_reflect) * self.UAV_FAS.F
-                    jam_ch = h_R_p @ Phi_jam @ h_UR_active
-                    jam_power_total += abs(jam_ch) ** 2
-                an_power_eff = jam_power_total * self.an_power
-            else:
-                H_eff = np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F
-                an_power_eff = 0
+                    # 用户k的综合信道: h_d + RIS反射
+                    channel_k = h_d + h_R_p @ Phi_signal @ h_UR_active
+                    signal_power_k += abs(w_k[i] * channel_k * self.UAV_FAS.F) ** 2
 
-            alpha_p = abs(H_eff) ** 2
-            beta_p = dB_to_normal(noise_power) * 1e-3 + an_power_eff
-            caps.append(math.log10(1 + alpha_p / beta_p))
+                # === 分母: 其他用户干扰 + RIS干扰 + 热噪声 ===
+                # 其他用户j≠k的干扰 (用w_j)
+                interference_power = 0
+                for j in range(K):
+                    if j != k:
+                        w_j = self.user_beamforming_weights[j]
+                        for i, port in enumerate(active_ports):
+                            h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
+                            h_UR_active = h_UR[:, port]
+                            channel_j = h_d + h_R_p @ Phi_signal @ h_UR_active
+                            interference_power += abs(w_j[i] * channel_j * self.UAV_FAS.F) ** 2
+
+                # RIS人工噪声干扰
+                jam_power = 0
+                for port in active_ports:
+                    h_UR_active = h_UR[:, port]
+                    jam_ch = h_R_p @ Phi_jam @ h_UR_active
+                    jam_power += abs(jam_ch) ** 2
+
+                alpha_p = signal_power_k
+                beta_p = dB_to_normal(noise_power) * 1e-3 + interference_power + jam_power
+            else:
+                alpha_p = abs(np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F) ** 2
+                beta_p = dB_to_normal(noise_power) * 1e-3
+
+            caps.append(math.log10(1 + alpha_p / (beta_p + 1e-20)))
 
         return np.array(caps)
 
@@ -806,15 +873,17 @@ class MiniSystem(object):
 
     def get_system_action_dim(self):
         """获取动作维度 (Agent 1)
-        39维 = 12维端口选择 + 1维F增益 + 1维RIS放大增益 + 1维RIS干扰比例 + 24维RIS相位
+        43维 = 12维端口选择 + 1维F增益 + 1维RIS放大增益 + 1维RIS干扰比例
+               + 24维RIS相位 + 4维用户级波束成形权重(K×num_active_ports)
         """
         result = 0
         if self.if_with_FAS:
             result += self.UAV_FAS.fas_num_ports  # 端口选择: 12维 (Gumbel-Softmax)
-            result += 1      # FAS增益 F: 1维
-            result += 1      # RIS放大增益 β: 1维
-            result += 1      # RIS干扰比例 η ∈ [0,1]: 1维 ← Agent控制
+            result += 1  # FAS增益 F: 1维
+            result += 1  # RIS放大增益 β: 1维
+            result += 1  # RIS干扰比例 η ∈ [0,1]: 1维 ← Agent控制
             result += 2 * 12  # RIS相位: 24维 (12信号+12干扰)
+            result += self.user_num * self.num_active_ports  # 用户级波束权重: K×num_active_ports
         return result
 
     def get_system_state_dim(self):

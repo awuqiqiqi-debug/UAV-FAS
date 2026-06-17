@@ -25,8 +25,10 @@ EPISODE_NUM = args.ep_num
 LOAD_PATH = args.load_path
 
 # ========== 速度约束参数 ==========
-V_MAX = 1.0       # 最大水平速度 (m/s)
-DT = 0.1          # 仿真步长 (s)
+# 注意: V_MAX 仅用于信息展示，实际速度处理在环境 step() 中统一完成
+# 环境中 V_MAX=1.0m/s, DT=0.1s, 单步最大位移=0.1m
+V_MAX = 1.0       # 与环境保持一致 (m/s)
+DT = 0.1          # 与环境保持一致 (s)
 STEP_SCALE = V_MAX * DT  # 单步最大位移 = 0.1m
 MAX_DIST_PER_EP = V_MAX * DT * 100  # 每轮最大距离 = 10m
 
@@ -48,7 +50,7 @@ agent_1 = Agent(
     tau=0.005, env=system, batch_size=256,
     layer1_size=1024, layer2_size=768,
     layer3_size=512, layer4_size=256,
-    n_actions=system.get_system_action_dim(),  # 12端口 + 1 F + 1 β + 24 RIS = 38
+    n_actions=system.get_system_action_dim(),  # 12端口 + 1 F + 1 β + 1 η + 24 RIS + 4用户权重 = 43
     max_size=1000000,
     agent_name="FAS"
 )
@@ -91,8 +93,8 @@ print("TD3 Velocity Constraint Training - FAS-UAV Secure Communication")
 print("=" * 60)
 print(f"State dim (Agent 1): {system.get_system_state_dim()}")
 print(f"State dim (Agent 2): {system.get_uav_local_state_dim()}")
-print(f"Action dim (Agent 1): 48 (BS+FAS+RIS)")
-print(f"Action dim (Agent 2): 2 (vx, vy) → 转换为位移")
+print(f"Action dim (Agent 1): {system.get_system_action_dim()} (端口+F+β+η+RIS相位+用户权重)")
+print(f"Action dim (Agent 2): 2 (归一化速度) → 环境统一处理位移")
 print(f"Speed limit: v_max={V_MAX}m/s, dt={DT}s")
 print(f"Step scale: {STEP_SCALE}m (单步最大位移)")
 print(f"Max distance per episode: {MAX_DIST_PER_EP}m")
@@ -120,39 +122,29 @@ while episode_cnt < EPISODE_NUM:
             # Agent 1: 波束成形 (直接输出)
             a1 = agent_1.choose_action(obs1, greedy=0.1 * math.pow(1 - episode_cnt / EPISODE_NUM, 2))
 
-            # Agent 2: 速度控制 → 转换为位移
+            # Agent 2: 速度控制
+            # 直接输出归一化速度 [-1, 1]，由环境统一处理速度→位移转换
             a2_raw = agent_2.choose_action(obs2, greedy=0.5 * math.pow(1 - episode_cnt / EPISODE_NUM, 2))
 
-            # 速度 → 位移转换
-            vx = np.clip(a2_raw[0], -1, 1) * V_MAX  # 速度限制 [-v_max, v_max]
-            vy = np.clip(a2_raw[1], -1, 1) * V_MAX
-            dx = vx * DT  # 位移 = 速度 × 步长
-            dy = vy * DT
-
-            # 边界软约束：接近边界时减速
-            x, y = system.UAV_FAS.coordinate[0], system.UAV_FAS.coordinate[1]
-            if x > 40:  # 接近右边界
-                dx = min(dx, 0)  # 只能向左
-            elif x < -40:  # 接近左边界
-                dx = max(dx, 0)  # 只能向右
-            if y > 40:  # 接近上边界
-                dy = min(dy, 0)  # 只能向下
-            elif y < -40:  # 接近下边界
-                dy = max(dy, 0)  # 只能向上
-
-            # 传入环境 (将速度转换为归一化位移)
-            action_0 = dx / system.UAV_FAS.max_movement_per_time_slot
-            action_1 = dy / system.UAV_FAS.max_movement_per_time_slot
+            # 传入环境 (环境内部统一处理: action → 速度 → 位移 → 边界约束)
+            action_0 = np.clip(a2_raw[0], -1, 1)
+            action_1 = np.clip(a2_raw[1], -1, 1)
 
             # 执行动作
+            # 动作维度: 43维 = G[0:13](端口12+F增益1) + Phi[13:39](β+η+RIS相位26) + 用户权重[39:43](K×num_active_ports)
             new_s1, reward, done, _ = system.step(
                 action_0=action_0, action_1=action_1, action_2=0,
-                G=list(a1[:13]), Phi=list(a1[13:38])
+                G=list(a1[:13]), Phi=list(a1[13:39]), user_weights=list(a1[39:43])
             )
             new_s2 = system.observe_uav_local()
 
-            # 记录移动距离
-            step_dist = math.sqrt(dx**2 + dy**2)
+            # 记录移动距离 (从环境获取实际位移)
+            move_data = system.data_manager.simulation_result_dic.get('UAV_movement', [])
+            if len(move_data) > 0:
+                last_move = move_data[-1]
+                step_dist = math.sqrt(last_move[0]**2 + last_move[1]**2)
+            else:
+                step_dist = 0
             total_distance += step_dist
 
             score_per_ep += reward
