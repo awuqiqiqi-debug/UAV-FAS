@@ -348,10 +348,10 @@ class MiniSystem(object):
             # ====== RIS有源放大 + 相位优化（Agent控制） ======
             # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2:14]=信号相位, Phi[14:26]=干扰相位
 
-            # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(11)]
-            BETA_MAX = 2.0  # 进一步降低: 从5降到2，让窃听容量更合理
+            # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(BETA_MAX)]
+            BETA_MAX = 20.0  # β²最大20，ris_beta最大≈4.47，让RIS干扰足以压制窃听者
             ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
-            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(2)]
+            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, 10]
 
             # 从动作中提取干扰比例 η (第1维), 映射到 [0.1, 0.5]
             # 扩大干扰范围，让Agent有足够自由度抑制窃听者
@@ -582,15 +582,22 @@ class MiniSystem(object):
         # 自适应惩罚系数：窃听容量越大，惩罚越重
         lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
 
+        # === 8. 波束权重分化奖励 ===
+        # 鼓励Agent为不同用户设计不同权重，利用用户位置差异优化保密性能
+        w_diff = 0
+        if len(user_secrecies) >= 2:
+            # 用安全容量的差异作为分化指标
+            w_diff = abs(user_secrecies[0] - user_secrecies[1]) / (max(user_secrecies) + 1e-10)
+
         # === 组合奖励 ===
-        # log2下容量×3.32，权重相应缩小0.4/3.32≈0.12，保持原奖励尺度
-        raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率 (log2归一化)
+        raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率
                       + 0.1 * R_fas  # FAS辅助安全
-                      + 0.3 * R_spatial  # 空间引导: 引导UAV飞向安全位置
+                      + 0.3 * R_spatial  # 空间引导
+                      + 0.05 * w_diff  # 波束分化奖励
                       - 0.1 * p_m  # 功率约束
                       - 0.5 * p_r  # 最低安全速率约束
                       - 0.05 * p_e  # 能耗惩罚
-                      - lambda_eve * p_eve)  # 窃听者容量惩罚 (自适应)
+                      - lambda_eve * p_eve)  # 窃听者容量惩罚
 
         return np.clip(raw_reward, -5.0, 5.0)
 
@@ -819,18 +826,12 @@ class MiniSystem(object):
     def calculate_capacity_array_of_attacker_p(self, p):
         """计算攻击者p对各用户的窃听容量（按用户分别计算）
 
-        多用户MIMO窃听模型:
-        UAV发射: x = Σ_k w_k × s_k (每个用户有独立波束成形向量w_k)
+        简化窃听模型 (单用户窃听 + RIS干扰):
+        分子(有用信号): |Σ_i w_k[i] × (h_d_i + h_R_p·Φ_signal·h_UR_i)|² × F²
+        分母(噪声+干扰): N0 + |h_R_p · Φ_jam · h_UR|²  (热噪声 + RIS人工噪声)
 
-        窃听者窃听用户k时:
-        分子(有用信号): |Σ_i w_k[i] × (h_d_i + h_R_p·Φ·h_UR_i)|² × F²
-          → 依赖用户k的波束权重w_k → 不同用户窃听容量不同
-
-        分母(干扰+噪声):
-          N0 + Σ_{j≠k} |Σ_i w_j[i] × (h_d_i + h_R_p·Φ·h_UR_i)|² × F²  (其他用户干扰)
-            + |h_R_p · Φ_jam · h_UR|²  (RIS人工噪声)
-
-        Φ_signal 已包含 β 放大，不再额外乘 amp_gains
+        注意: 移除了多用户干扰项 (Σ_{j≠k})，因为当用户权重相同时
+        干扰功率=信号功率，会锁死窃听容量≈1.0，使Agent无法学习。
         """
         K = len(self.user_list)
         noise_power = self.attacker_list[p].noise_power
@@ -854,28 +855,15 @@ class MiniSystem(object):
                     # 功率合并: 每端口独立功率 × 权重
                     signal_power_k += w_k[i] * abs(channel_k * self.UAV_FAS.F) ** 2
 
-                # === 分母: 其他用户干扰(功率合并) + RIS干扰 + 热噪声 ===
-                interference_power = 0
-                for j in range(K):
-                    if j != k:
-                        w_j = self.user_beamforming_weights[j]
-                        for i, port in enumerate(active_ports):
-                            h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
-                            h_UR_active = h_UR[:, port]
-                            channel_j = h_d + h_R_p @ Phi_signal @ h_UR_active
-                            # 功率合并: 每端口独立功率 × 权重
-                            interference_power += w_j[i] * abs(channel_j * self.UAV_FAS.F) ** 2
-
-                # RIS人工噪声干扰 (干扰功率与干扰元件数成正比，不归一化)
+                # === 分母: 热噪声 + RIS干扰 (不含多用户干扰) ===
                 jam_power = 0
                 for port in active_ports:
                     h_UR_active = h_UR[:, port]
                     jam_ch = h_R_p @ Phi_jam @ h_UR_active
                     jam_power += abs(jam_ch) ** 2
-                # 不再除以num_jam，让干扰功率随元件数增加而增大
 
                 alpha_p = signal_power_k
-                beta_p = dB_to_normal(noise_power) * 1e-3 + interference_power + jam_power
+                beta_p = dB_to_normal(noise_power) * 1e-3 + jam_power
             else:
                 alpha_p = abs(np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F) ** 2
                 beta_p = dB_to_normal(noise_power) * 1e-3
