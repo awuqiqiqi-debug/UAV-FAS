@@ -42,7 +42,13 @@ class CriticNetwork(nn.Module):
         T.nn.init.uniform_(self.fc4.bias.data, -f4, f4)
         self.bn4 = nn.LayerNorm(self.fc4_dims)
 
-        self.action_value = nn.Linear(self.n_actions, self.fc4_dims)
+        # 拼接融合层: state特征 + action → 融合特征
+        self.fusion = nn.Linear(self.fc4_dims + self.n_actions, self.fc4_dims)
+        f_fusion = 1./np.sqrt(self.fusion.weight.data.size()[0])
+        T.nn.init.uniform_(self.fusion.weight.data, -f_fusion, f_fusion)
+        T.nn.init.uniform_(self.fusion.bias.data, -f_fusion, f_fusion)
+        self.bn_fusion = nn.LayerNorm(self.fc4_dims)
+
         f5 = 0.003
         self.q = nn.Linear(self.fc4_dims, 1)
         T.nn.init.uniform_(self.q.weight.data, -f5, f5)
@@ -53,23 +59,25 @@ class CriticNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state, action):
-        state_value = self.fc1(state)
-        state_value = self.bn1(state_value)
-        state_value = F.relu(state_value)
-        state_value = self.fc2(state_value)
-        state_value = self.bn2(state_value)
-        state_value = F.relu(state_value)
-        state_value = self.fc3(state_value)
-        state_value = self.bn3(state_value)
-        state_value = F.relu(state_value)
-        state_value = self.fc4(state_value)
-        state_value = self.bn4(state_value)
-
-        action_value = F.relu(self.action_value(action))
-        state_action_value = F.relu(T.add(state_value, action_value))
-        state_action_value = self.q(state_action_value)
-
-        return state_action_value
+        x = self.fc1(state)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+        x = self.bn3(x)
+        x = F.relu(x)
+        x = self.fc4(x)
+        x = self.bn4(x)
+        x = F.relu(x)
+        # 拼接融合: state特征 + action
+        sa = T.cat([x, action], dim=1)
+        sa = self.fusion(sa)
+        sa = self.bn_fusion(sa)
+        sa = F.relu(sa)
+        q = self.q(sa)
+        return q
 
     def save_checkpoint(self):
         print('... saving checkpoint ...')

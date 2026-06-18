@@ -40,7 +40,8 @@ system = MiniSystem(
     if_dir_link=1, if_with_FAS=True,
     if_move_users=True, if_movements=True,
     reverse_x_y=(False, False), if_UAV_pos_state=True,
-    reward_design=REWARD_DESIGN, project_name=None, step_num=100
+    reward_design=REWARD_DESIGN, project_name=None, step_num=100,
+    total_episodes=EPISODE_NUM
 )
 
 # ========== Agent 1: FAS波束成形 ==========
@@ -153,9 +154,11 @@ while episode_cnt < EPISODE_NUM:
             agent_1.remember(obs1, a1, reward, new_s1, int(done))
             agent_2.remember(obs2, a2_raw, reward, new_s2, int(done))
 
-            # 学习
+            # 学习: Agent 1正常学，Agent 2自适应频率（前期少学，后期正常学）
             agent_1.learn()
-            agent_2.learn()
+            learn_ratio = min(1.0, episode_cnt / (EPISODE_NUM * 0.3))  # 前30%逐渐增加
+            if np.random.random() < learn_ratio:
+                agent_2.learn()
 
             obs1 = new_s1
             obs2 = new_s2

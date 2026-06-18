@@ -605,7 +605,7 @@ class MiniSystem(object):
             F_k_ = np.hstack((self.UAV.F[:, 0:k], self.UAV.F[:, k+1:]))
             interference = h_BS * G_k_ + h_FAS * F_k_
         beta_k = math.pow(np.linalg.norm(interference), 2) + dB_to_normal(noise_power) * 1e-3
-        return math.log10(1 + alpha_k / beta_k)
+        return math.log2(1 + alpha_k / beta_k)
 
     def calculate_capacity_array_of_attacker_p(self, p):
         """
@@ -632,7 +632,7 @@ class MiniSystem(object):
         if K == 1:
             alpha_p = math.pow(abs(h_BS * self.UAV.G + h_FAS * self.UAV.F), 2)
             beta_p = jamming_power + dB_to_normal(noise_power) * 1e-3
-            return np.array([math.log10(1 + alpha_p / beta_p)])
+            return np.array([math.log2(1 + alpha_p / beta_p)])
         else:
             result = np.zeros(K)
             for k in range(K):
@@ -643,7 +643,7 @@ class MiniSystem(object):
                 F_k_ = np.hstack((self.UAV.F[:, 0:k], self.UAV.F[:, k+1:]))
                 interference = h_BS * G_k_ + h_FAS * F_k_
                 beta_p = math.pow(np.linalg.norm(interference), 2) + jamming_power + dB_to_normal(noise_power) * 1e-3
-                result[k] = math.log10(1 + alpha_p / beta_p)
+                result[k] = math.log2(1 + alpha_p / beta_p)
             return result
 
     def calculate_secure_capacity_of_user_k(self, k=2):

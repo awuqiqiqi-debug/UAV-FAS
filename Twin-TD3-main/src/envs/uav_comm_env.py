@@ -45,21 +45,22 @@ T_hover = m * g  # 悬停所需推力 (N)
 v_0 = (T_hover / (A_r * 2 * rho)) ** 0.5  # 悬停诱导速度 (m/s)
 
 
-def get_energy_consumption(v_t):
+def get_energy_consumption(v_t, dt=None):
     """
     计算无人机能耗 (基于旋翼无人机功率消耗模型)
     P = P0 + Pi + Ptip + Pbody
-    - P0: 桨叶剖面功率
-    - Pi: 旋翼诱导功率
-    - Ptip: 桨尖风阻功率
-    - Pbody: 机身阻力功率
+    - v_t: 速度 (m/s)
+    - dt: 时间步长 (s)，默认使用全局delta_t
+    返回: 能耗 (J)
     """
+    if dt is None:
+        dt = delta_t
     # 桨尖风阻功率 + 机身阻力功率
     energy_1 = P_0 + 3 * P_0 * (abs(v_t)) ** 2 / (U_tip ** 2) + 0.5 * d_0 * rho * s * A_r * (abs(v_t)) ** 3
     # 旋翼诱导功率 (考虑前飞修正)
     energy_2 = P_i * ((1 + (abs(v_t) ** 4) / (4 * (v_0 ** 4))) ** 0.5 - (abs(v_t) ** 2) / (2 * (v_0 ** 2))) ** 0.5
     # 总能耗 = 功率 × 时间
-    energy = delta_time * (energy_1 + energy_2)
+    energy = dt * (energy_1 + energy_2)
     return energy
 
 
@@ -85,7 +86,7 @@ class MiniSystem(object):
                  fas_ant_num=12, ris_ant_num=64, if_dir_link=1, if_with_FAS=True, \
                  if_move_users=False, if_movements=True, reverse_x_y=(False, False), \
                  if_UAV_pos_state=True, reward_design='ssr', project_name=None, step_num=100, existing_path=None, \
-                 num_active_ports=2):
+                 num_active_ports=2, total_episodes=1000):
 
         self.if_dir_link = if_dir_link
         self.if_with_FAS = if_with_FAS
@@ -104,6 +105,7 @@ class MiniSystem(object):
         self.jam_align_weight = 0.2  # 初始: 20%对准+80%Agent自主
         self.jam_align_decay = 0.9999  # 增长因子 (衰减<1表示每步增长)
         self.jam_align_max = 0.5  # 最大对准权重: 最多50%对准窃听者
+        self.total_train_steps = total_episodes * step_num  # 总训练步数
 
         # 初始化数据管理器
         self.data_manager = DataManager(file_path='./data', project_name=project_name, existing_path=existing_path, \
@@ -304,9 +306,18 @@ class MiniSystem(object):
             port_logits_tensor = torch.tensor(G[:self.UAV_FAS.fas_num_ports], dtype=torch.float)
             if self.training:
                 # 课程学习: τ从1.0衰减到0.1，逐步从随机→确定性选择
+                # 余弦退火: τ 从 0.8 缓慢降到 0.1
                 if not hasattr(self, '_gumbel_tau'):
-                    self._gumbel_tau = 1.0  # 初始温度
-                self._gumbel_tau = max(0.1, self._gumbel_tau * 0.9995)  # 每步衰减
+                    self._gumbel_tau = 0.8
+                    self._gumbel_step = 0
+                self._gumbel_step += 1
+                progress = min(1.0, self._gumbel_step / max(1, self.total_train_steps))
+                # 前50%训练保持高探索(τ=0.6~0.8)，后50%才衰减到0.1
+                if progress < 0.5:
+                    self._gumbel_tau = 0.6 + 0.2 * (1.0 - progress / 0.5)
+                else:
+                    decay_progress = (progress - 0.5) / 0.5
+                    self._gumbel_tau = 0.6 - 0.5 * decay_progress
                 port_probs = F.gumbel_softmax(port_logits_tensor, tau=self._gumbel_tau, hard=False)
                 # 选择概率最高的K个端口
                 _, topk_indices = torch.topk(port_probs, self.num_active_ports)
@@ -338,14 +349,14 @@ class MiniSystem(object):
             # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2:14]=信号相位, Phi[14:26]=干扰相位
 
             # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(11)]
-            BETA_MAX = 5.0  # 降低上限: 从40降到5，避免干扰功率过大
+            BETA_MAX = 2.0  # 进一步降低: 从5降到2，让窃听容量更合理
             ris_beta_raw = float(np.clip(Phi[0], -1.0, 1.0)) if len(Phi) > 0 else 0.0
-            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(10)]
+            ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, sqrt(2)]
 
-            # 从动作中提取干扰比例 η (第1维), 映射到 [0.2, 0.5]
-            # 降低干扰比例上限: 从0.8降到0.5，避免过多元件用于干扰
+            # 从动作中提取干扰比例 η (第1维), 映射到 [0.1, 0.5]
+            # 扩大干扰范围，让Agent有足够自由度抑制窃听者
             jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
-            jam_ratio = 0.2 + (jam_ratio_raw + 1.0) / 2.0 * 0.3  # [0.2, 0.5]
+            jam_ratio = 0.1 + (jam_ratio_raw + 1.0) / 2.0 * 0.4  # [0.1, 0.5]
             jam_elements = int(self.RIS.ant_num * jam_ratio)
             jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
@@ -455,15 +466,22 @@ class MiniSystem(object):
         # 获取奖励 (已在reward()中包含能耗惩罚和边界检查)
         reward = self.reward()
 
-        # 边界检查 (轻度惩罚, 不覆盖奖励)
+        # 边界检查: 出界时施加渐进惩罚
         done = False
         x, y = self.UAV_FAS.coordinate[0:2]
-        if x < self.border[0][0] or x > self.border[0][1]:
-            done = True
-            reward -= 0.3  # 轻度边界惩罚
-        if y < self.border[1][0] or y > self.border[1][1]:
-            done = True
-            reward -= 0.3  # 轻度边界惩罚
+        border_penalty = 0
+        if x < self.border[0][0]:
+            border_penalty += abs(x - self.border[0][0]) * 0.1
+        elif x > self.border[0][1]:
+            border_penalty += abs(x - self.border[0][1]) * 0.1
+        if y < self.border[1][0]:
+            border_penalty += abs(y - self.border[1][0]) * 0.1
+        elif y > self.border[1][1]:
+            border_penalty += abs(y - self.border[1][1]) * 0.1
+
+        if border_penalty > 0:
+            reward -= border_penalty  # 渐进惩罚，不直接终止
+            done = border_penalty > 5.0  # 超出边界5m才终止
 
         self.data_manager.store_data([reward], 'reward')
 
@@ -541,7 +559,7 @@ class MiniSystem(object):
         p_m = max(0, P_actual_mW - P_max_mW) / (P_max_mW + 1e-10)
 
         # === 5. 最低安全速率惩罚 ===
-        R_th = 0.01
+        R_th = 0.03  # log2下阈值调大 (原0.01 × 3.32)
         p_r = 0
         for sk in user_secrecies:
             if sk < R_th:
@@ -560,17 +578,18 @@ class MiniSystem(object):
         # 取所有用户中窃听容量的最大值（最坏情况）
         max_eavesdrop = np.max(self.eavesdrop_capacity_array)
         # 归一化到[0,1]: 以5bits/s/Hz为参考上限
-        p_eve = min(max_eavesdrop / 5.0, 1.0)
+        p_eve = min(max_eavesdrop / 15.0, 1.0)  # log2下参考值调大 (原5.0 × 3.32)
         # 自适应惩罚系数：窃听容量越大，惩罚越重
         lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
 
         # === 组合奖励 ===
-        raw_reward = (0.4 * total_secrecy  # 主目标: 保密速率
+        # log2下容量×3.32，权重相应缩小0.4/3.32≈0.12，保持原奖励尺度
+        raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率 (log2归一化)
                       + 0.1 * R_fas  # FAS辅助安全
-                      + 0.15 * R_spatial  # 空间引导 (提高权重，引导UAV飞向安全位置)
+                      + 0.3 * R_spatial  # 空间引导: 引导UAV飞向安全位置
                       - 0.1 * p_m  # 功率约束
                       - 0.5 * p_r  # 最低安全速率约束
-                      - 0.1 * p_e  # 能耗惩罚
+                      - 0.05 * p_e  # 能耗惩罚
                       - lambda_eve * p_eve)  # 窃听者容量惩罚 (自适应)
 
         return np.clip(raw_reward, -5.0, 5.0)
@@ -781,19 +800,21 @@ class MiniSystem(object):
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
             Phi_signal = np.asarray(self.RIS.Phi_signal)
-            # 用户k的等效信道: Σ_i w_k[i] × (h_d_i + H_reflect_i) × F
-            H_eff = 0
+            # 功率合并（非相干）: 每个端口独立计算功率，按权重加权求和
+            # 避免相干合并的相位抵消问题
+            power_k = 0
             for i, port in enumerate(active_ports):
                 h_d = np.asarray(self.h_U_k[k].channel_matrix)[port, 0]
                 h_UR_active = h_UR[:, port]
                 H_reflect = h_R_k @ Phi_signal @ h_UR_active  # Phi_signal已含β
-                H_eff += w_k[i] * (h_d + H_reflect) * self.UAV_FAS.F
+                h_eff_i = (h_d + H_reflect) * self.UAV_FAS.F
+                power_k += w_k[i] * abs(h_eff_i) ** 2
+            alpha_k = power_k
         else:
-            H_eff = np.asarray(self.h_U_k[k].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F
+            alpha_k = abs(np.asarray(self.h_U_k[k].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F) ** 2
 
-        alpha_k = abs(H_eff) ** 2
         beta_k = dB_to_normal(noise_power) * 1e-3
-        return math.log10(1 + alpha_k / beta_k)
+        return math.log2(1 + alpha_k / (beta_k + 1e-20))
 
     def calculate_capacity_array_of_attacker_p(self, p):
         """计算攻击者p对各用户的窃听容量（按用户分别计算）
@@ -824,17 +845,16 @@ class MiniSystem(object):
                 Phi_jam = np.asarray(self.RIS.Phi_jam)  # 已含β
                 w_k = self.user_beamforming_weights[k]  # (num_active_ports,)
 
-                # === 分子: 窃听用户k的信号 (用w_k) ===
+                # === 分子: 窃听用户k的信号 (功率合并，用w_k) ===
                 signal_power_k = 0
                 for i, port in enumerate(active_ports):
                     h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
                     h_UR_active = h_UR[:, port]
-                    # 用户k的综合信道: h_d + RIS反射
                     channel_k = h_d + h_R_p @ Phi_signal @ h_UR_active
-                    signal_power_k += abs(w_k[i] * channel_k * self.UAV_FAS.F) ** 2
+                    # 功率合并: 每端口独立功率 × 权重
+                    signal_power_k += w_k[i] * abs(channel_k * self.UAV_FAS.F) ** 2
 
-                # === 分母: 其他用户干扰 + RIS干扰 + 热噪声 ===
-                # 其他用户j≠k的干扰 (用w_j)
+                # === 分母: 其他用户干扰(功率合并) + RIS干扰 + 热噪声 ===
                 interference_power = 0
                 for j in range(K):
                     if j != k:
@@ -843,14 +863,16 @@ class MiniSystem(object):
                             h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
                             h_UR_active = h_UR[:, port]
                             channel_j = h_d + h_R_p @ Phi_signal @ h_UR_active
-                            interference_power += abs(w_j[i] * channel_j * self.UAV_FAS.F) ** 2
+                            # 功率合并: 每端口独立功率 × 权重
+                            interference_power += w_j[i] * abs(channel_j * self.UAV_FAS.F) ** 2
 
-                # RIS人工噪声干扰
+                # RIS人工噪声干扰 (干扰功率与干扰元件数成正比，不归一化)
                 jam_power = 0
                 for port in active_ports:
                     h_UR_active = h_UR[:, port]
                     jam_ch = h_R_p @ Phi_jam @ h_UR_active
                     jam_power += abs(jam_ch) ** 2
+                # 不再除以num_jam，让干扰功率随元件数增加而增大
 
                 alpha_p = signal_power_k
                 beta_p = dB_to_normal(noise_power) * 1e-3 + interference_power + jam_power
@@ -858,7 +880,7 @@ class MiniSystem(object):
                 alpha_p = abs(np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F) ** 2
                 beta_p = dB_to_normal(noise_power) * 1e-3
 
-            caps.append(math.log10(1 + alpha_p / (beta_p + 1e-20)))
+            caps.append(math.log2(1 + alpha_p / (beta_p + 1e-20)))
 
         return np.array(caps)
 
@@ -929,6 +951,7 @@ class MiniSystem(object):
             state.extend(list(user.coordinate))
 
         # RIS位置 (3维)
+        
         state.extend(list(self.RIS.coordinate))
 
         # 窃听者位置 (3维)
