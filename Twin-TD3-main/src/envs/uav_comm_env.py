@@ -569,7 +569,7 @@ class MiniSystem(object):
         E_p = get_energy_consumption(v_t)
         E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
         E_p_norm = max(0, min(1, E_p_norm))
-        lambda_e = 0.15
+        lambda_e = 0.03
         p_e = lambda_e * E_p_norm
 
         # === 7. 窃听者容量惩罚 (最坏情况) ===
@@ -578,7 +578,7 @@ class MiniSystem(object):
         # 归一化到[0,1]: 以5bits/s/Hz为参考上限
         p_eve = min(max_eavesdrop / 15.0, 1.0)  # log2下参考值调大 (原5.0 × 3.32)
         # 自适应惩罚系数：窃听容量越大，惩罚越重
-        lambda_eve = 0.3 + 0.5 * min(max_eavesdrop / 3.0, 1.0)  # 范围 [0.3, 0.8]
+        lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)  # 范围 [0.5, 1.5]
 
         # === 8. RIS干扰相位对齐奖励 ===
         # 鼓励Agent将RIS干扰相位对齐窃听者信道，最大化干扰效果
@@ -603,12 +603,12 @@ class MiniSystem(object):
 
         # === 组合奖励 ===
         raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率
-                      + 0.10 * R_fas  # FAS辅助安全
-                      + 0.10 * R_spatial  # 空间引导
-                      + 0.10 * R_ris_jam  # RIS干扰相位对齐奖励
-                      - 0.10 * p_m  # 功率约束
-                      - 0.30 * p_r  # 最低安全速率约束
-                      - 0.15 * p_e  # 能耗惩罚
+                      + 0.1 * R_fas  # FAS辅助安全
+                      + 0.25 * R_spatial  # 空间引导
+                      + 0.15 * R_ris_jam  # RIS干扰相位对齐奖励
+                      - 0.1 * p_m  # 功率约束
+                      - 0.5 * p_r  # 最低安全速率约束
+                      - 0.05 * p_e  # 能耗惩罚
                       - lambda_eve * p_eve)  # 窃听者容量惩罚
 
         return np.clip(raw_reward, -5.0, 5.0)
@@ -839,48 +839,48 @@ class MiniSystem(object):
         """计算攻击者p对各用户的窃听容量（按用户分别计算）
 
         简化窃听模型 (单用户窃听 + RIS干扰):
-        分子(有用信号): |Σ_i w_k[i] × (h_d_i + h_R_p·Φ_signal·h_UR_i)|² × F²
-        分母(噪声+干扰): N0 + |h_R_p · Φ_jam · h_UR|²  (热噪声 + RIS人工噪声)
+        分子(有用信号): Σ_i w_k[i] × |h_eff_port[i]|²
+        分母(噪声+RIS干扰): N0 + jam_power
 
-        注意: 移除了多用户干扰项 (Σ_{j≠k})，因为当用户权重相同时
-        干扰功率=信号功率，会锁死窃听容量≈1.0，使Agent无法学习。
+        不同用户的窃听容量通过 w_k[i] 自然差异化：
+        w_k 不同 → signal_power_k 不同 → 窃听容量不同。
         """
         K = len(self.user_list)
         noise_power = self.attacker_list[p].noise_power
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
 
+        # 预计算每个端口的等效窃听信道功率 (与k无关)
+        h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
+        h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
+        Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
+        Phi_jam = np.asarray(self.RIS.Phi_jam)  # 已含β
+
+        h_eff_power = []  # (num_active_ports,)
+        for port in active_ports:
+            h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
+            h_UR_active = h_UR[:, port]
+            channel = h_d + h_R_p @ Phi_signal @ h_UR_active
+            h_eff_power.append(abs(channel * self.UAV_FAS.F) ** 2)
+
+        # RIS干扰功率 (与k无关)
+        jam_power = 0
+        for port in active_ports:
+            h_UR_active = h_UR[:, port]
+            jam_ch = h_R_p @ Phi_jam @ h_UR_active
+            jam_power += abs(jam_ch) ** 2
+
+        # 计算每个用户的窃听容量
         caps = []
         for k in range(K):
-            if self.if_with_FAS:
-                h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
-                h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
-                Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
-                Phi_jam = np.asarray(self.RIS.Phi_jam)  # 已含β
-                w_k = self.user_beamforming_weights[k]  # (num_active_ports,)
+            w_k = self.user_beamforming_weights[k]
 
-                # === 分子: 窃听用户k的信号 (功率合并，用w_k) ===
-                signal_power_k = 0
-                for i, port in enumerate(active_ports):
-                    h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
-                    h_UR_active = h_UR[:, port]
-                    channel_k = h_d + h_R_p @ Phi_signal @ h_UR_active
-                    # 功率合并: 每端口独立功率 × 权重
-                    signal_power_k += w_k[i] * abs(channel_k * self.UAV_FAS.F) ** 2
+            # 分子: 用户k的信号功率 (w_k加权)
+            signal_power_k = sum(w_k[i] * h_eff_power[i] for i in range(len(active_ports)))
 
-                # === 分母: 热噪声 + RIS干扰 (不含多用户干扰) ===
-                jam_power = 0
-                for port in active_ports:
-                    h_UR_active = h_UR[:, port]
-                    jam_ch = h_R_p @ Phi_jam @ h_UR_active
-                    jam_power += abs(jam_ch) ** 2
+            # 分母: 噪声 + RIS干扰 (无多用户干扰)
+            beta_p = dB_to_normal(noise_power) * 1e-3 + jam_power
 
-                alpha_p = signal_power_k
-                beta_p = dB_to_normal(noise_power) * 1e-3 + jam_power
-            else:
-                alpha_p = abs(np.asarray(self.h_U_p[p].channel_matrix)[active_ports[0], 0] * self.UAV_FAS.F) ** 2
-                beta_p = dB_to_normal(noise_power) * 1e-3
-
-            caps.append(math.log2(1 + alpha_p / (beta_p + 1e-20)))
+            caps.append(math.log2(1 + signal_power_k / (beta_p + 1e-20)))
 
         return np.array(caps)
 

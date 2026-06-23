@@ -1,7 +1,7 @@
 """生成td3_see通用的学术论文级HTML训练报告"""
 import json, scipy.io as sio, numpy as np, csv
 
-mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_18'
+mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see'
 
 rewards_csv = f'{mat_dir}/training_rewards.csv'
 episodes, scores = [], []
@@ -16,7 +16,7 @@ def moving_avg(data, w=20):
     return [float(np.mean(data[max(0,i-w+1):i+1])) for i in range(len(data))]
 ma_scores = moving_avg(scores)
 
-selected_eps = [0, 100, 200, 400, 600, 800, 999]
+selected_eps = [0, 100, 200, 400, 600, 800, 899]
 episode_data = {}
 for ep in selected_eps:
     try:
@@ -60,7 +60,7 @@ for ep in selected_eps:
             'u0': uc[:,0].tolist(), 'u1': uc[:,1].tolist(),
             'a0': ac[:,0].tolist(), 'a1': ac[:,1].tolist()
         }
-for ep in [50, 100, 200, 300, 350, 399]:
+for ep in selected_eps:
     if ep in episode_data:
         sc = np.array(episode_data[ep]['secure_capacity'])
         sec_data[ep] = {'u0': sc[:,0].tolist(), 'u1': sc[:,1].tolist()}
@@ -92,7 +92,7 @@ for key, label, col in [
     ('attaker_capacity', '窃听容量 (→用户1)', 1),
 ]:
     vals = []
-    for ep in [0, 100, 200, 400, 600, 800, 999]:
+    for ep in [0, 100, 200, 400, 600, 800, 899]:
         if ep in episode_data:
             arr = np.array(episode_data[ep][key])
             if arr.ndim == 3:
@@ -193,7 +193,7 @@ body{font-family:'Noto Sans SC','Times New Roman',serif;background:#fff;color:#2
 <div class="tbl-section">
   <table>
     <caption>表1 &nbsp; 训练关键指标对比</caption>
-    <tr><th>指标</th><th>Episode 0</th><th>Episode 100</th><th>Episode 200</th><th>Episode 400</th><th>Episode 600</th><th>Episode 800</th><th>Episode 999</th></tr>
+    <tr><th>指标</th><th>Episode 0</th><th>Episode 100</th><th>Episode 200</th><th>Episode 400</th><th>Episode 600</th><th>Episode 800</th><th>Episode 899</th></tr>
     ''' + rows_html + '''
   </table>
 </div>
@@ -218,7 +218,7 @@ Plotly.newPlot('c_reward', [
   yaxis:{title:{text:'奖励 (Reward/SEE)',font:{size:13}},tickfont:{size:11},gridcolor:'#eee'}
 }));
 
-var trajEps = [0, 100, 200, 400, 600, 800, 999];
+var trajEps = [0, 100, 200, 400, 600, 800, 899];
 var trajContainer = document.getElementById('traj_container');
 var entityMarkers = [
   {x:[4],y:[47],name:'用户0',mode:'markers',marker:{size:11,color:'#fff',symbol:'circle',line:{color:C.green,width:2}}},
@@ -243,7 +243,7 @@ trajEps.forEach(function(ep){
   }));
 });
 
-var capEps=[0,100,200,400,600,800,999];var capContainer=document.getElementById('cap_container');
+var capEps=[0,100,200,400,600,800,899];var capContainer=document.getElementById('cap_container');
 capEps.forEach(function(ep){
   if(!cap[ep])return;
   var div=document.createElement('div');div.className='chart';div.id='cap_'+ep;capContainer.appendChild(div);
@@ -261,7 +261,7 @@ capEps.forEach(function(ep){
   }));
 });
 
-var secEps=[100,200,400,600,800,999];var secContainer=document.getElementById('sec_container');
+var secEps=[0,100,200,400,600,800,899];var secContainer=document.getElementById('sec_container');
 secEps.forEach(function(ep){
   if(!sec[ep])return;
   var div=document.createElement('div');div.className='chart';div.id='sec_'+ep;secContainer.appendChild(div);
