@@ -582,18 +582,32 @@ class MiniSystem(object):
         # 自适应惩罚系数：窃听容量越大，惩罚越重
         lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
 
-        # === 8. 波束权重分化奖励 ===
-        # 鼓励Agent为不同用户设计不同权重，利用用户位置差异优化保密性能
-        w_diff = 0
-        if len(user_secrecies) >= 2:
-            # 用安全容量的差异作为分化指标
-            w_diff = abs(user_secrecies[0] - user_secrecies[1]) / (max(user_secrecies) + 1e-10)
+        # === 8. RIS干扰相位对齐奖励 ===
+        # 鼓励Agent将RIS干扰相位对齐窃听者信道，最大化干扰效果
+        R_ris_jam = 0
+        if len(self.attacker_list) > 0 and self.if_with_FAS:
+            try:
+                active_port = self.UAV_FAS.fas_active_port
+                h_R_p = np.asarray(self.h_R_p[0].channel_matrix).flatten()  # (N_ris,)
+                h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
+                # 窃听者等效信道相位
+                eve_phase = np.angle(h_R_p * h_UR[:, active_port])
+                # RIS干扰相位
+                jam_diag = np.diag(np.asarray(self.RIS.Phi_jam))
+                jam_phase = np.angle(jam_diag)
+                # 计算对齐度: 相位差越小，对齐度越高
+                phase_diff = np.abs(jam_phase - eve_phase)
+                # 归一化到[0,1]: 完美对齐=1, 完全相反=0
+                alignment = np.mean(np.cos(phase_diff))  # [-1, 1] → 映射到[0, 1]
+                R_ris_jam = (alignment + 1.0) / 2.0
+            except:
+                R_ris_jam = 0
 
         # === 组合奖励 ===
         raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率
                       + 0.1 * R_fas  # FAS辅助安全
-                      + 0.3 * R_spatial  # 空间引导
-                      + 0.05 * w_diff  # 波束分化奖励
+                      + 0.25 * R_spatial  # 空间引导
+                      + 0.15 * R_ris_jam  # RIS干扰相位对齐奖励
                       - 0.1 * p_m  # 功率约束
                       - 0.5 * p_r  # 最低安全速率约束
                       - 0.05 * p_e  # 能耗惩罚

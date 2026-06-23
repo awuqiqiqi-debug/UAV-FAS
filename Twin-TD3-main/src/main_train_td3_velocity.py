@@ -46,9 +46,9 @@ system = MiniSystem(
 
 # ========== Agent 1: FAS波束成形 ==========
 agent_1 = Agent(
-    alpha=1e-4, beta=1e-3,
+    alpha=5e-5, beta=5e-3,
     input_dims=[system.get_system_state_dim()],
-    tau=0.005, env=system, batch_size=256,
+    tau=0.003, env=system, batch_size=256,
     layer1_size=1024, layer2_size=768,
     layer3_size=512, layer4_size=256,
     n_actions=system.get_system_action_dim(),  # 12端口 + 1 F + 1 β + 1 η + 24 RIS + 4用户权重 = 43
@@ -59,9 +59,9 @@ agent_1 = Agent(
 # ========== Agent 2: UAV速度控制 ==========
 # 输出2维速度(vx,vy)，不是位移(dx,dy)
 agent_2 = Agent(
-    alpha=1e-4, beta=1e-3,
+    alpha=5e-5, beta=5e-3,
     input_dims=[system.get_uav_local_state_dim()],
-    tau=0.005, env=system, batch_size=256,
+    tau=0.003, env=system, batch_size=256,
     layer1_size=512, layer2_size=384,
     layer3_size=256, layer4_size=128,
     n_actions=2,  # vx, vy (速度，不是位移)
@@ -105,6 +105,8 @@ print("=" * 60)
 # ========== 训练循环 ==========
 episode_cnt = existing_episode_count
 step_num = 100
+best_eavesdrop = float('inf')  # 记录最优窃听容量
+best_episode = 0  # 记录最优轮次
 
 while episode_cnt < EPISODE_NUM:
     system.reset()
@@ -171,9 +173,31 @@ while episode_cnt < EPISODE_NUM:
 
     # 保存数据
     system.data_manager.save_file(episode_cnt=episode_cnt)
+
+    # 获取当前窃听容量（用于最优模型保存）
+    current_eavesdrop = np.max(system.eavesdrop_capacity_array) if hasattr(system, 'eavesdrop_capacity_array') else 0
+
+    # 检查是否为最优模型
+    if current_eavesdrop < best_eavesdrop and current_eavesdrop > 0:
+        best_eavesdrop = current_eavesdrop
+        best_episode = episode_cnt
+        # 保存最优模型
+        agent_1.save_models()
+        agent_2.save_models()
+        # 复制为best模型
+        import shutil
+        import os
+        for name in ['Actor_BS_FAS_TD3', 'Critic_1_BS_FAS_TD3', 'Critic_2_BS_FAS_TD3',
+                      'Actor_UAV_TD3', 'Critic_1_UAV_TD3', 'Critic_2_UAV_TD3']:
+            src = os.path.join(agent_1.save_dir, name + '.pth') if 'FAS' in name else os.path.join(agent_2.save_dir, name + '.pth')
+            dst = os.path.join(agent_1.save_dir, 'best_' + name + '.pth') if 'FAS' in name else os.path.join(agent_2.save_dir, 'best_' + name + '.pth')
+            if os.path.exists(src):
+                shutil.copy2(src, dst)
+        print(f"  >>> Best model saved! eavesdrop={current_eavesdrop:.4f}", flush=True)
+
     system.reset()
 
-    print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | dist: {total_distance:.1f}m", flush=True)
+    print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | dist: {total_distance:.1f}m | eve: {current_eavesdrop:.4f} | best: {best_eavesdrop:.4f}(ep{best_episode})", flush=True)
     episode_cnt += 1
 
     # 定期保存模型
@@ -185,3 +209,5 @@ while episode_cnt < EPISODE_NUM:
 agent_1.save_models()
 agent_2.save_models()
 print(f"\nTraining complete! {episode_cnt} episodes")
+print(f"Best model: episode {best_episode}, eavesdrop capacity = {best_eavesdrop:.4f}")
+print(f"Best models saved as 'best_*.pth' files")
