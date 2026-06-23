@@ -1,6 +1,8 @@
 # 3D 可视化模块 (renderer.py)
 
 > 代码位置：`src/utils/renderer.py`
+>
+> **最后更新**: 2026-06-23
 
 ---
 

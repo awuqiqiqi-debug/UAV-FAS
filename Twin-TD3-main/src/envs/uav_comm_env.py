@@ -100,11 +100,10 @@ class MiniSystem(object):
         self.ris_ant_num = ris_ant_num  # RIS反射单元数量
         self.num_active_ports = num_active_ports  # 同时激活的FAS端口数 (2~3)
         self.training = True  # 训练/推理模式切换
-        # 干扰相位课程学习: 初始20%对准，逐步增长到50%
-        # 初期以随机干扰为主，让Agent自主学习；后期逐步引入启发式辅助
-        self.jam_align_weight = 0.2  # 初始: 20%对准+80%Agent自主
-        self.jam_align_decay = 0.9999  # 增长因子 (衰减<1表示每步增长)
-        self.jam_align_max = 0.5  # 最大对准权重: 最多50%对准窃听者
+        # RIS干扰相位: Agent 100%自主控制，无启发式对准
+        self.jam_align_weight = 0.0    # 0%启发式，100% Agent自主
+        self.jam_align_decay = 1.0     # 不增长
+        self.jam_align_max = 0.0       # 不引入启发式对准
         self.total_train_steps = total_episodes * step_num  # 总训练步数
 
         # 初始化数据管理器
@@ -565,13 +564,12 @@ class MiniSystem(object):
             if sk < R_th:
                 p_r += (R_th - sk) / R_th
 
-        # === 6. 能耗惩罚 (降低权重，避免抑制UAV移动) ===
+        # === 6. 能耗惩罚 ===
         v_t = getattr(self.UAV_FAS, 'v_t', 0)
         E_p = get_energy_consumption(v_t)
         E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
         E_p_norm = max(0, min(1, E_p_norm))
-        # 降低能耗惩罚系数: 从0.1降到0.03，避免Agent学到"不动=低能耗=高奖励"
-        lambda_e = 0.03
+        lambda_e = 0.15
         p_e = lambda_e * E_p_norm
 
         # === 7. 窃听者容量惩罚 (最坏情况) ===
@@ -580,7 +578,7 @@ class MiniSystem(object):
         # 归一化到[0,1]: 以5bits/s/Hz为参考上限
         p_eve = min(max_eavesdrop / 15.0, 1.0)  # log2下参考值调大 (原5.0 × 3.32)
         # 自适应惩罚系数：窃听容量越大，惩罚越重
-        lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)
+        lambda_eve = 0.3 + 0.5 * min(max_eavesdrop / 3.0, 1.0)  # 范围 [0.3, 0.8]
 
         # === 8. RIS干扰相位对齐奖励 ===
         # 鼓励Agent将RIS干扰相位对齐窃听者信道，最大化干扰效果
@@ -605,12 +603,12 @@ class MiniSystem(object):
 
         # === 组合奖励 ===
         raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率
-                      + 0.1 * R_fas  # FAS辅助安全
-                      + 0.25 * R_spatial  # 空间引导
-                      + 0.15 * R_ris_jam  # RIS干扰相位对齐奖励
-                      - 0.1 * p_m  # 功率约束
-                      - 0.5 * p_r  # 最低安全速率约束
-                      - 0.05 * p_e  # 能耗惩罚
+                      + 0.10 * R_fas  # FAS辅助安全
+                      + 0.10 * R_spatial  # 空间引导
+                      + 0.10 * R_ris_jam  # RIS干扰相位对齐奖励
+                      - 0.10 * p_m  # 功率约束
+                      - 0.30 * p_r  # 最低安全速率约束
+                      - 0.15 * p_e  # 能耗惩罚
                       - lambda_eve * p_eve)  # 窃听者容量惩罚
 
         return np.clip(raw_reward, -5.0, 5.0)

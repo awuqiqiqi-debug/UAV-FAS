@@ -90,7 +90,7 @@ agent_1_param_dic["beta"] = 0.001   # Critic学习率
 agent_1_param_dic["input_dims"] = system.get_system_state_dim()
 agent_1_param_dic["tau"] = 0.005    # soft update
 agent_1_param_dic["batch_size"] = 80  # 批次大小
-agent_1_param_dic["n_actions"] = system.get_system_action_dim()  # 38维动作空间
+agent_1_param_dic["n_actions"] = system.get_system_action_dim()  # 43维动作空间
 agent_1_param_dic["action_noise_factor"] = 0.3  # 初始噪声
 agent_1_param_dic["memory_max_size"] = 500000  # 经验回放池容量
 agent_1_param_dic["agent_name"] = "BS_FAS"
@@ -268,13 +268,14 @@ while episode_cnt < total_episodes:
             action_1[13:] = np.zeros(26)  # 固定RIS相位为零
 
         # 执行动作 (FAS-only mode)
-        # 动作布局: action_1[0:12]=端口, [12]=F增益, [13]=β, [14]=η(jam_ratio), [15:39]=相位
+        # 动作布局: action_1[0:12]=端口, [12]=F增益, [13]=β, [14]=η(jam_ratio), [15:39]=相位, [39:43]=用户权重
         new_state_1, reward, done, info = system.step(
             action_0=action_2[0],  # vx速度
             action_1=action_2[1],  # vy速度
             action_2=0,  # 高度固定50m
             G=action_1[0:13],  # 13维: 12端口选择 + 1 F增益
             Phi=action_1[13:39],  # 26维RIS: 1维β + 1维η + 24维相位
+            user_weights=list(action_1[39:43]),  # 4维: K×num_active_ports用户波束权重
             set_pos_x=action_2[0],
             set_pos_y=action_2[1]
         )
@@ -305,17 +306,11 @@ while episode_cnt < total_episodes:
 
     system.reset()
 
-    # 干扰相位课程学习衰减: 逐渐减少对准窃听者的权重，让Agent学会自主控制
-    system.jam_align_weight = max(
-        system.jam_align_min,
-        system.jam_align_weight * system.jam_align_decay
-    )
-
     # 打印训练进度
     if episode_cnt % 10 == 0:
         avg_reward_10 = np.mean(episode_rewards[-10:]) if len(episode_rewards) >= 10 else np.mean(episode_rewards)
         avg_cap_10 = np.mean(episode_capacities[-10:]) if len(episode_capacities) >= 10 else np.mean(episode_capacities)
-        print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | avg10: {avg_reward_10:8.3f} | cap: {avg_cap:.4f} | jam_align: {system.jam_align_weight:.3f}")
+        print(f"ep: {episode_cnt:4d} | reward: {score_per_ep:8.3f} | avg10: {avg_reward_10:8.3f} | cap: {avg_cap:.4f}")
 
     episode_cnt += 1
 

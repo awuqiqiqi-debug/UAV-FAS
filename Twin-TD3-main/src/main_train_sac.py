@@ -56,39 +56,33 @@ agent_2 = SACAgent(
     agent_name="UAV"
 )
 
-# ========== SAC专用奖励归一化 ==========
+# ========== SAC专用奖励归一化 (Welford在线算法) ==========
 class SACRewardNormalizer:
     """
-    SAC奖励归一化策略:
-    1. 将奖励偏移到正值范围
-    2. 使用running statistics归一化
-    3. 裁剪到合理范围
+    SAC奖励归一化策略 (running mean/std):
+    使用Welford在线算法计算均值和标准差
+    归一化到零均值单位方差，适合SAC的Q值学习
     """
-    def __init__(self):
-        self.reward_sum = 0
-        self.reward_sq_sum = 0
+    def __init__(self, clip_range=5.0):
+        self.mean = 0.0
+        self.var = 1.0
         self.count = 0
-        self.reward_min = float('inf')
-        self.reward_max = float('-inf')
+        self.clip_range = clip_range
 
     def normalize(self, reward):
-        # 更新统计量
-        self.reward_sum += reward
-        self.reward_sq_sum += reward ** 2
+        # Welford在线更新
         self.count += 1
-        self.reward_min = min(self.reward_min, reward)
-        self.reward_max = max(self.reward_max, reward)
+        delta = reward - self.mean
+        self.mean += delta / self.count
+        delta2 = reward - self.mean
+        self.var += (delta * delta2 - self.var) / self.count
 
-        # 计算均值和标准差
-        mean = self.reward_sum / self.count
-        var = self.reward_sq_sum / self.count - mean ** 2
-        std = max(var ** 0.5, 1e-8)
+        # 归一化到零均值单位方差
+        std = max(self.var ** 0.5, 1e-8)
+        normalized = (reward - self.mean) / std
 
-        # 归一化到 [0, 1]
-        normalized = (reward - self.reward_min) / (self.reward_max - self.reward_min + 1e-8)
-
-        # 偏移到正值范围 (SAC需要正奖励)
-        normalized = normalized + 0.5  # 偏移到 [0.5, 1.5]
+        # 裁剪防止极端值
+        normalized = np.clip(normalized, -self.clip_range, self.clip_range)
 
         return normalized
 
@@ -142,14 +136,19 @@ while episode_cnt < EPISODE_NUM:
         step_cnt += 1
 
         if not system.render_obj.pause:
-            # 选择动作（SAC天然随机探索，无需额外噪声）
+            # 选择动作
             a1 = agent_1.choose_action(obs1)
             a2 = agent_2.choose_action(obs2)
+
+            # RIS相位维度 (15-38) 增加探索噪声
+            phase_noise = np.random.normal(0, 0.3, size=24)
+            a1[15:39] = np.clip(a1[15:39] + phase_noise, -1.0, 1.0)
 
             # 执行动作
             new_s1, reward, done, _ = system.step(
                 action_0=a2[0], action_1=a2[1], action_2=a2[2],
-                G=list(a1[:13]), Phi=list(a1[13:38])
+                G=list(a1[:13]), Phi=list(a1[13:39]),
+                user_weights=list(a1[39:43])
             )
             new_s2 = system.observe_uav_local()
 
