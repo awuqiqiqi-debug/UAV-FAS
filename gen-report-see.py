@@ -1,7 +1,7 @@
 """生成td3_see训练报告 - 1000轮版本 (新位置配置)"""
 import json, scipy.io as sio, numpy as np, csv, os
 
-mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_13'
+mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_14'
 
 # ========== 读取训练数据 ==========
 rewards_csv = f'{mat_dir}/training_rewards.csv'
@@ -78,6 +78,8 @@ for ep in selected_eps:
             if alloc.ndim == 3:
                 alloc = alloc[:, 0, :]
             fd['ris_allocation'] = alloc.tolist()
+        if 'see' in episode_data[ep]:
+            fd['see'] = np.array(episode_data[ep]['see']).flatten().tolist()
         bf = episode_data[ep]['beamforming_matrix']
         port0, port1 = [], []
         for i in range(len(bf)):
@@ -194,6 +196,14 @@ html += '<div class="section">\n'
 html += '  <div class="section-title">图4 &nbsp; 安全容量随时间变化</div>\n'
 html += '  <div class="grid2" id="sec_container"></div>\n'
 html += '  <div class="section-caption">Fig.4 Secrecy capacity = User capacity - Eavesdropper capacity.</div>\n'
+html += '</div>\n'
+
+# 图4.5 SEE曲线
+html += '<div class="section">\n'
+html += '  <div class="section-title">图4.5 &nbsp; 安全能效 (SEE) 变化</div>\n'
+html += '  <div class="note"><b>说明：</b>SEE = 安全速率 / 能耗 (bits/J)，衡量单位能耗的安全性能。</div>\n'
+html += '  <div class="chart" id="see_chart" style="height:350px"></div>\n'
+html += '  <div class="section-caption">Fig.4.5 Secure Energy Efficiency (SEE) = Secrecy Rate / Energy Consumption.</div>\n'
 html += '</div>\n'
 
 # 图5
@@ -319,6 +329,25 @@ html += '});\n'
 
 # 图5: RIS与FAS
 html += 'var fasEps=Object.keys(fasData).map(Number);\n'
+
+# SEE曲线 (需要在fasEps定义之后)
+html += 'var seeEps=[];\n'
+html += 'var seeValues=[];\n'
+html += 'fasEps.forEach(function(ep){\n'
+html += '  if(fasData[ep] && fasData[ep].see){\n'
+html += '    var avg_see=fasData[ep].see.reduce(function(a,b){return a+b},0)/fasData[ep].see.length;\n'
+html += '    seeEps.push(ep);\n'
+html += '    seeValues.push(avg_see);\n'
+html += '  }\n'
+html += '});\n'
+html += 'Plotly.newPlot("see_chart",[\n'
+html += '  {x:seeEps,y:seeValues,mode:"lines+markers",name:"平均SEE",line:{color:"#FF6B00",width:2.5},marker:{size:8}}\n'
+html += '],Object.assign({},layout_base,{\n'
+html += '  height:350,\n'
+html += '  xaxis:{title:{text:"训练轮次 (Episode)",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",dtick:2},\n'
+html += '  yaxis:{title:{text:"SEE (bits/J)",font:{size:12}},tickfont:{size:10},gridcolor:"#eee"}\n'
+html += '}));\n'
+
 html += 'var fasContainer=document.getElementById("fas_container");\n'
 html += 'fasEps.forEach(function(ep){\n'
 html += '  if(!fasData[ep])return;\n'

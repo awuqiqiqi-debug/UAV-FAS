@@ -112,7 +112,7 @@ class MiniSystem(object):
                                                     'user_capacity', 'secure_capacity', 'attaker_capacity', 'F_power',
                                                     'reward', 'UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase',
                                                     'FAS_active_port', 'jam_ratio', 'user1_ratio', 'user2_ratio',
-                                                    'ris_allocation'])
+                                                    'ris_allocation', 'see'])
 
         # 初始化 UAV-FAS 实体 (FAS作为唯一发射天线)
         self.UAV_FAS = UAV_FAS(
@@ -523,6 +523,8 @@ class MiniSystem(object):
             self.data_manager.store_data([getattr(self, 'current_user2_ratio', 0.35)], 'user2_ratio')
             # RIS单元分配 (64维: 0=User1反射, 1=User2反射, 2=干扰)
             self.data_manager.store_data([getattr(self, 'current_unit_allocation', [0]*64)], 'ris_allocation')
+            # SEE (安全能效)
+            self.data_manager.store_data([getattr(self, 'current_see', 0.0)], 'see')
 
         return new_state, reward, done, []
 
@@ -639,6 +641,11 @@ class MiniSystem(object):
                       - 0.5 * p_r  # 最低安全速率约束
                       - 0.05 * p_e  # 能耗惩罚
                       - lambda_eve * p_eve)  # 窃听者容量惩罚
+
+        # === 计算SEE (安全能效) ===
+        # SEE = 总安全速率 / 总能耗 (bits/J)
+        E_total = get_energy_consumption(v_t)  # 焦耳
+        self.current_see = total_secrecy / (E_total + 1e-10)  # 避免除零
 
         return np.clip(raw_reward, -5.0, 5.0)
 
