@@ -1,7 +1,7 @@
 """生成td3_see训练报告 - 1000轮版本 (新位置配置)"""
 import json, scipy.io as sio, numpy as np, csv, os
 
-mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see'
+mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see_13'
 
 # ========== 读取训练数据 ==========
 rewards_csv = f'{mat_dir}/training_rewards.csv'
@@ -68,6 +68,10 @@ for ep in selected_eps:
             fd['ris_jam'] = np.array(episode_data[ep]['RIS_jam_phase']).flatten().tolist()
         if 'jam_ratio' in episode_data[ep]:
             fd['jam_ratio'] = np.array(episode_data[ep]['jam_ratio']).flatten().tolist()
+        if 'user1_ratio' in episode_data[ep]:
+            fd['user1_ratio'] = np.array(episode_data[ep]['user1_ratio']).flatten().tolist()
+        if 'user2_ratio' in episode_data[ep]:
+            fd['user2_ratio'] = np.array(episode_data[ep]['user2_ratio']).flatten().tolist()
         if 'ris_allocation' in episode_data[ep]:
             alloc = np.array(episode_data[ep]['ris_allocation'])
             # 压缩中间维度: (steps, 1, 64) -> (steps, 64)
@@ -202,18 +206,18 @@ html += '</div>\n'
 
 # 图6
 html += '<div class="section">\n'
-html += '  <div class="section-title">图6 &nbsp; RIS干扰比例 η 变化</div>\n'
-html += '  <div class="note"><b>说明：</b>η决定64个RIS单元的分配：64×η个干扰窃听者，64×(1-η)个反射给用户。</div>\n'
-html += '  <div class="chart" id="eta_chart" style="height:350px"></div>\n'
-html += '  <div class="section-caption">Fig.6 RIS jamming ratio η (ratio of elements jamming eavesdropper).</div>\n'
+html += '  <div class="section-title">图6 &nbsp; RIS资源分配比例变化</div>\n'
+html += '  <div class="note"><b>说明：</b>三条曲线分别表示：η(干扰窃听者)、β₁(反射给User1)、β₂(反射给User2)。</div>\n'
+html += '  <div class="chart" id="ratio_chart" style="height:450px"></div>\n'
+html += '  <div class="section-caption">Fig.6 RIS resource allocation ratios (η, β₁, β₂).</div>\n'
 html += '</div>\n'
 
 # 图7
 html += '<div class="section">\n'
 html += '  <div class="section-title">图7 &nbsp; RIS单元分配可视化</div>\n'
-html += '  <div class="note"><b>说明：</b>热力图显示64个RIS单元的分配：蓝色=反射给用户，红色=干扰窃听者。每行一个episode。</div>\n'
+html += '  <div class="note"><b>说明：</b>热力图显示64个RIS单元的分配：绿色=反射给User1，蓝色=反射给User2，红色=干扰窃听者。每行一个episode。</div>\n'
 html += '  <div class="chart" id="allocation_chart" style="height:400px"></div>\n'
-html += '  <div class="section-caption">Fig.7 RIS unit allocation heatmap (blue=reflect, red=jam).</div>\n'
+html += '  <div class="section-caption">Fig.7 RIS unit allocation heatmap (green=User1, blue=User2, red=jam).</div>\n'
 html += '</div>\n'
 
 # 表1
@@ -341,29 +345,33 @@ html += '    legend:{x:0.01,y:0.99,xanchor:"left",yanchor:"top",font:{size:9}},h
 html += '  }));\n'
 html += '});\n'
 
-# 图6: η变化
-html += 'var etaTraces=[];\n'
-html += 'var etaEps=[];\n'
+# 图6: 三类比例变化
+html += 'var ratioEps=[];\n'
+html += 'var etaValues=[], u1Values=[], u2Values=[];\n'
 html += 'fasEps.forEach(function(ep){\n'
 html += '  if(fasData[ep] && fasData[ep].jam_ratio){\n'
 html += '    var avg_eta=fasData[ep].jam_ratio.reduce(function(a,b){return a+b},0)/fasData[ep].jam_ratio.length;\n'
-html += '    etaEps.push(ep);\n'
-html += '    etaTraces.push(avg_eta);\n'
+html += '    var avg_u1=(fasData[ep].user1_ratio||[]).reduce(function(a,b){return a+b},0)/Math.max(1,(fasData[ep].user1_ratio||[]).length);\n'
+html += '    var avg_u2=(fasData[ep].user2_ratio||[]).reduce(function(a,b){return a+b},0)/Math.max(1,(fasData[ep].user2_ratio||[]).length);\n'
+html += '    ratioEps.push(ep);\n'
+html += '    etaValues.push(avg_eta);\n'
+html += '    u1Values.push(avg_u1);\n'
+html += '    u2Values.push(avg_u2);\n'
 html += '  }\n'
 html += '});\n'
-html += 'Plotly.newPlot("eta_chart",[\n'
-html += '  {x:etaEps,y:etaTraces,mode:"lines+markers",name:"平均η",line:{color:C.magenta,width:2.5},marker:{size:8}},\n'
-html += '  {x:[0,1000],y:[0.1,0.1],mode:"lines",name:"下限0.1",line:{color:C.gray,width:1,dash:"dash"}},\n'
-html += '  {x:[0,1000],y:[0.5,0.5],mode:"lines",name:"上限0.5",line:{color:C.gray,width:1,dash:"dash"}}\n'
+html += 'Plotly.newPlot("ratio_chart",[\n'
+html += '  {x:ratioEps,y:etaValues,mode:"lines+markers",name:"η (干扰)",line:{color:C.red,width:2.5},marker:{size:8}},\n'
+html += '  {x:ratioEps,y:u1Values,mode:"lines+markers",name:"β₁ (User1)",line:{color:"#00AA00",width:2.5},marker:{size:8}},\n'
+html += '  {x:ratioEps,y:u2Values,mode:"lines+markers",name:"β₂ (User2)",line:{color:C.cyan,width:2.5},marker:{size:8}},\n'
+html += '  {x:[0,1000],y:[0.33,0.33],mode:"lines",name:"均衡线",line:{color:C.gray,width:1,dash:"dash"}}\n'
 html += '],Object.assign({},layout_base,{\n'
-html += '  height:350,\n'
+html += '  height:450,\n'
 html += '  xaxis:{title:{text:"训练轮次 (Episode)",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",dtick:100},\n'
-html += '  yaxis:{title:{text:"干扰比例 η",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",range:[0,0.6]},\n'
-html += '  annotations:[{x:500,y:0.15,text:"η=0.1 → 6个干扰单元",showarrow:false,font:{size:10,color:C.gray}},\n'
-html += '              {x:500,y:0.45,text:"η=0.5 → 32个干扰单元",showarrow:false,font:{size:10,color:C.gray}}]\n'
+html += '  yaxis:{title:{text:"分配比例",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",range:[0,0.6]},\n'
+html += '  legend:{x:0.01,y:0.99,xanchor:"left",yanchor:"top",font:{size:10}}\n'
 html += '}));\n'
 
-# 图7: RIS单元分配热力图
+# 图7: RIS单元分配热力图 (三类)
 html += 'var allocEps=[];\n'
 html += 'var allocData=[];\n'
 html += 'fasEps.forEach(function(ep){\n'
@@ -374,14 +382,15 @@ html += '  }\n'
 html += '});\n'
 html += 'Plotly.newPlot("allocation_chart",[\n'
 html += '  {z:allocData,x:Array.from({length:64},function(_,i){return i}),y:allocEps,\n'
-html += '   type:"heatmap",colorscale:[[0,"#0075C0"],[1,"#C00000"]],\n'
-html += '   showscale:true,colorbar:{title:"类型",tickvals:[0,1],ticktext:["反射","干扰"]},\n'
+html += '   type:"heatmap",colorscale:[[0,"#00AA00"],[0.5,"#0075C0"],[1,"#C00000"]],\n'
+html += '   zmin:0,zmax:2,\n'
+html += '   showscale:true,colorbar:{title:"类型",tickvals:[0,1,2],ticktext:["User1反射","User2反射","干扰"],len:0.8},\n'
 html += '   hovertemplate:"单元: %{x}<br>类型: %{z:.0f}<extra></extra>"}\n'
 html += '],Object.assign({},layout_base,{\n'
-html += '  height:Math.max(300,allocEps.length*40+100),\n'
+html += '  height:Math.max(400,allocEps.length*50+120),\n'
 html += '  xaxis:{title:{text:"RIS单元编号",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",dtick:8},\n'
 html += '  yaxis:{title:{text:"Episode",font:{size:12}},tickfont:{size:10},gridcolor:"#eee",autorange:"reversed"},\n'
-html += '  margin:{t:40,b:50,l:80,r:80}\n'
+html += '  margin:{t:40,b:50,l:80,r:100}\n'
 html += '}));\n'
 
 html += '</script>\n</body>\n</html>'

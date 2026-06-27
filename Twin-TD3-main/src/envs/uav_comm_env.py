@@ -111,7 +111,8 @@ class MiniSystem(object):
                                         store_list=['beamforming_matrix', 'reflecting_coefficient', 'UAV_state',
                                                     'user_capacity', 'secure_capacity', 'attaker_capacity', 'F_power',
                                                     'reward', 'UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase',
-                                                    'FAS_active_port', 'jam_ratio', 'ris_allocation'])
+                                                    'FAS_active_port', 'jam_ratio', 'user1_ratio', 'user2_ratio',
+                                                    'ris_allocation'])
 
         # 初始化 UAV-FAS 实体 (FAS作为唯一发射天线)
         self.UAV_FAS = UAV_FAS(
@@ -345,7 +346,8 @@ class MiniSystem(object):
             # else: 保持默认均匀权重
 
             # ====== RIS有源放大 + 相位优化（Agent控制） ======
-            # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2:14]=信号相位, Phi[14:26]=干扰相位
+            # 动作解析: Phi[0]=β, Phi[1]=η(jam_ratio), Phi[2]=β₁(reflect_user1_ratio)
+            #           Phi[3:15]=信号相位User1, Phi[15:27]=信号相位User2, Phi[27:39]=干扰相位
 
             # 从动作中提取放大增益标量 (第0维), 映射到 [1, sqrt(BETA_MAX)]
             BETA_MAX = 20.0  # β²最大20，ris_beta最大≈4.47，让RIS干扰足以压制窃听者
@@ -353,31 +355,45 @@ class MiniSystem(object):
             ris_beta = 1.0 + (ris_beta_raw + 1.0) / 2.0 * (np.sqrt(BETA_MAX) - 1.0)  # [1, 10]
 
             # 从动作中提取干扰比例 η (第1维), 映射到 [0.1, 0.5]
-            # 扩大干扰范围，让Agent有足够自由度抑制窃听者
             jam_ratio_raw = float(np.clip(Phi[1], -1.0, 1.0)) if len(Phi) > 1 else 0.0
             jam_ratio = 0.1 + (jam_ratio_raw + 1.0) / 2.0 * 0.4  # [0.1, 0.5]
-            jam_elements = int(self.RIS.ant_num * jam_ratio)
-            jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
-            reflect_elements = self.RIS.ant_num - jam_elements
-            self.current_jam_ratio = jam_ratio  # 保存当前η值供存储
-            # 保存单元分配: 0=反射, 1=干扰
-            self.current_unit_allocation = [0]*reflect_elements + [1]*jam_elements
 
-            # 从动作中提取相位 (第2~25维, 共24维)
-            ris_action = Phi[2:26] if len(Phi) >= 26 else Phi[2:]
-            signal_phases = ris_action[:12]
-            jam_phases = ris_action[12:24] if len(ris_action) >= 24 else ris_action[12:]
+            # 从动作中提取User1反射比例 β₁ (第2维), 映射到 [0.1, 0.5]
+            user1_ratio_raw = float(np.clip(Phi[2], -1.0, 1.0)) if len(Phi) > 2 else 0.0
+            user1_ratio = 0.1 + (user1_ratio_raw + 1.0) / 2.0 * 0.4  # [0.1, 0.5]
 
-            # 信号反射相位 (反射元件 → 放大给用户)
-            signal_expanded = np.tile(signal_phases, reflect_elements // 12 + 1)[:reflect_elements]
+            # 计算三类单元数量
+            N_ris = self.RIS.ant_num  # 64
+            jam_elements = max(1, min(int(N_ris * jam_ratio), N_ris - 2))  # 干扰单元
+            user1_elements = max(1, min(int(N_ris * user1_ratio), N_ris - jam_elements - 1))  # User1反射单元
+            user2_elements = N_ris - jam_elements - user1_elements  # User2反射单元
+
+            # 保存分配比例
+            self.current_jam_ratio = jam_ratio
+            self.current_user1_ratio = user1_ratio
+            self.current_user2_ratio = user2_elements / N_ris
+
+            # 保存单元分配: 0=User1反射, 1=User2反射, 2=干扰
+            self.current_unit_allocation = [0]*user1_elements + [1]*user2_elements + [2]*jam_elements
+
+            # 从动作中提取相位 (第3~38维, 共36维)
+            # Phi[3:15]=User1信号相位, Phi[15:27]=User2信号相位, Phi[27:39]=干扰相位
+            ris_action = Phi[3:39] if len(Phi) >= 39 else Phi[3:]
+            user1_phases = ris_action[:12] if len(ris_action) >= 12 else np.zeros(12)
+            user2_phases = ris_action[12:24] if len(ris_action) >= 24 else np.zeros(12)
+            jam_phases = ris_action[24:36] if len(ris_action) >= 36 else np.zeros(12)
+
+            # User1反射相位 (前user1_elements个单元)
+            user1_expanded = np.tile(user1_phases, user1_elements // 12 + 1)[:user1_elements]
+            # User2反射相位 (中间user2_elements个单元)
+            user2_expanded = np.tile(user2_phases, user2_elements // 12 + 1)[:user2_elements]
+            # 合并反射相位
+            signal_expanded = np.concatenate([user1_expanded, user2_expanded])
             signal_full = np.zeros(self.RIS.ant_num, dtype=complex)
-            signal_full[:reflect_elements] = np.exp(1j * signal_expanded * np.pi)
+            signal_full[:user1_elements + user2_elements] = np.exp(1j * signal_expanded * np.pi)
             Phi_signal_mat = np.asmatrix(np.diag(signal_full), dtype=complex)
 
             # 人工噪声相位 (干扰元件 → 干扰窃听者)
-            # 课程学习: Agent相位 + 窃听者信道对齐相位的加权混合
-            # 初始阶段: 对准窃听者80%，Agent学习20%
-            # 后期阶段: Agent完全自主控制
             h_R_p_arr = np.asarray(self.h_R_p[0].channel_matrix).flatten()  # (N_ris,)
             h_UR_arr = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             active_port_local = self.UAV_FAS.fas_active_port
@@ -385,31 +401,33 @@ class MiniSystem(object):
             eve_channel_phase = np.angle(h_R_p_arr * h_UR_active)  # 窃听者信道相位
 
             # 课程学习: 对准权重从0.2逐步增长到0.5
-            growth = 2.0 - self.jam_align_decay  # 1.0001
+            growth = 2.0 - self.jam_align_decay
             if self.jam_align_weight < self.jam_align_max:
                 self.jam_align_weight = min(self.jam_align_max,
                                             self.jam_align_weight * growth)
 
             # Agent相位 + 对准相位的加权混合
-            jam_agent_phase = np.tile(jam_phases, jam_elements // 12 + 1)[:jam_elements]  # Agent输出
-            jam_align_phase = -eve_channel_phase[reflect_elements:reflect_elements + jam_elements]  # 对准窃听者
+            reflect_total = user1_elements + user2_elements
+            jam_agent_phase = np.tile(jam_phases, jam_elements // 12 + 1)[:jam_elements]
+            jam_align_phase = -eve_channel_phase[reflect_total:reflect_total + jam_elements]
             jam_mixed_phase = (1 - self.jam_align_weight) * jam_agent_phase + self.jam_align_weight * jam_align_phase
 
             jam_full = np.zeros(self.RIS.ant_num, dtype=complex)
-            jam_full[reflect_elements:reflect_elements + jam_elements] = np.exp(1j * jam_mixed_phase * np.pi)
+            jam_full[reflect_total:reflect_total + jam_elements] = np.exp(1j * jam_mixed_phase * np.pi)
             Phi_jam_mat = np.asmatrix(np.diag(jam_full), dtype=complex)
 
-            # 有源放大: β × Φ (参考 ris_functions-jin: beta[i] = sqrt(1+10*rand))
-            # 信号路径: β × Φ_signal → 放大用户信号
-            # 干扰路径: β × Φ_jam → 放大干扰噪声
-            beta_signal = np.asmatrix(np.diag(np.full(reflect_elements, ris_beta)), dtype=complex)
+            # 有源放大: β × Φ
+            beta_user1 = np.asmatrix(np.diag(np.full(user1_elements, ris_beta)), dtype=complex)
+            beta_user2 = np.asmatrix(np.diag(np.full(user2_elements, ris_beta)), dtype=complex)
             beta_jam = np.asmatrix(np.diag(np.full(jam_elements, ris_beta)), dtype=complex)
 
             # 构建完整放大矩阵 (64×64对角)
             amp_full = np.zeros((self.RIS.ant_num, self.RIS.ant_num), dtype=complex)
-            amp_full[:reflect_elements, :reflect_elements] = np.asarray(beta_signal)
-            amp_full[reflect_elements:reflect_elements + jam_elements,
-            reflect_elements:reflect_elements + jam_elements] = np.asarray(beta_jam)
+            amp_full[:user1_elements, :user1_elements] = np.asarray(beta_user1)
+            amp_full[user1_elements:user1_elements + user2_elements,
+                    user1_elements:user1_elements + user2_elements] = np.asarray(beta_user2)
+            amp_full[reflect_total:reflect_total + jam_elements,
+                    reflect_total:reflect_total + jam_elements] = np.asarray(beta_jam)
             amp_diag = np.asmatrix(amp_full, dtype=complex)
 
             # 应用放大: θ = β × Φ
@@ -499,7 +517,11 @@ class MiniSystem(object):
             self.data_manager.store_data([self.UAV_FAS.fas_active_port], 'FAS_active_port')
             # RIS干扰比例 η
             self.data_manager.store_data([getattr(self, 'current_jam_ratio', 0.3)], 'jam_ratio')
-            # RIS单元分配 (64维: 0=反射, 1=干扰)
+            # RIS User1反射比例
+            self.data_manager.store_data([getattr(self, 'current_user1_ratio', 0.35)], 'user1_ratio')
+            # RIS User2反射比例
+            self.data_manager.store_data([getattr(self, 'current_user2_ratio', 0.35)], 'user2_ratio')
+            # RIS单元分配 (64维: 0=User1反射, 1=User2反射, 2=干扰)
             self.data_manager.store_data([getattr(self, 'current_unit_allocation', [0]*64)], 'ris_allocation')
 
         return new_state, reward, done, []
@@ -916,16 +938,17 @@ class MiniSystem(object):
 
     def get_system_action_dim(self):
         """获取动作维度 (Agent 1)
-        43维 = 12维端口选择 + 1维F增益 + 1维RIS放大增益 + 1维RIS干扰比例
-               + 24维RIS相位 + 4维用户级波束成形权重(K×num_active_ports)
+        44维 = 12维端口选择 + 1维F增益 + 1维RIS放大增益 + 1维RIS干扰比例
+               + 1维User1反射比例 + 36维RIS相位 + 4维用户级波束成形权重(K×num_active_ports)
         """
         result = 0
         if self.if_with_FAS:
             result += self.UAV_FAS.fas_num_ports  # 端口选择: 12维 (Gumbel-Softmax)
             result += 1  # FAS增益 F: 1维
             result += 1  # RIS放大增益 β: 1维
-            result += 1  # RIS干扰比例 η ∈ [0,1]: 1维 ← Agent控制
-            result += 2 * 12  # RIS相位: 24维 (12信号+12干扰)
+            result += 1  # RIS干扰比例 η ∈ [0.1,0.5]: 1维
+            result += 1  # RIS User1反射比例 β₁ ∈ [0.1,0.5]: 1维
+            result += 3 * 12  # RIS相位: 36维 (12 User1信号+12 User2信号+12干扰)
             result += self.user_num * self.num_active_ports  # 用户级波束权重: K×num_active_ports
         return result
 
