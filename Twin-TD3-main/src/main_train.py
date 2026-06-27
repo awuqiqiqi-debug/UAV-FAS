@@ -44,7 +44,7 @@ import os
 
 # 初始化系统模型
 episode_num = EPISODE_NUM
-step_num = 100
+step_num = 150
 
 # 如果指定了加载路径，检查已完成的轮数
 existing_episode_count = 0

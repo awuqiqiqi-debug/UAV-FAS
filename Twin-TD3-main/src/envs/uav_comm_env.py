@@ -245,8 +245,8 @@ class MiniSystem(object):
         self._last_action_1 = action_1
 
         # ========== 速度约束运动模型 ==========
-        # v_max=1.0m/s, dt=0.1s, 单步最大位移=0.1m
-        V_MAX = 1.0  # 最大水平速度 (m/s)，与训练脚本统一
+        # v_max=5.0m/s, dt=0.1s, 单步最大位移=0.5m, 150步最大75m
+        V_MAX = 5.0  # 最大水平速度 (m/s)，小型旋翼典型巡航速度
         DT = 0.1  # 仿真步长 (s)
 
         if self.if_movements:
@@ -810,6 +810,8 @@ class MiniSystem(object):
 
         信号模型: 用户k收到的信号 = Σ_i w_k[i] × (h_d_i + H_reflect_i) × F × s_k
         其中 w_k[i] 是用户k在端口i上的波束成形权重
+
+        修复: 加入用户专属相位偏移，让不同用户的RIS信道自然差异化
         """
         noise_power = self.user_list[k].noise_power
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
@@ -819,13 +821,18 @@ class MiniSystem(object):
             h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
             h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # (1, N_ris)
             Phi_signal = np.asarray(self.RIS.Phi_signal)
+
+            # 用户专属相位偏移: 不同用户在RIS处有不同的入射角
+            # 相位偏移 = 2π × k / K，确保每个用户的信道有独特特征
+            user_phase_offset = np.exp(1j * np.pi * k / self.user_num)
+            h_R_k_modified = h_R_k * user_phase_offset  # 应用用户专属相位
+
             # 功率合并（非相干）: 每个端口独立计算功率，按权重加权求和
-            # 避免相干合并的相位抵消问题
             power_k = 0
             for i, port in enumerate(active_ports):
                 h_d = np.asarray(self.h_U_k[k].channel_matrix)[port, 0]
                 h_UR_active = h_UR[:, port]
-                H_reflect = h_R_k @ Phi_signal @ h_UR_active  # Phi_signal已含β
+                H_reflect = h_R_k_modified @ Phi_signal @ h_UR_active  # 使用修改后的信道
                 h_eff_i = (h_d + H_reflect) * self.UAV_FAS.F
                 power_k += w_k[i] * abs(h_eff_i) ** 2
             alpha_k = power_k
@@ -838,29 +845,23 @@ class MiniSystem(object):
     def calculate_capacity_array_of_attacker_p(self, p):
         """计算攻击者p对各用户的窃听容量（按用户分别计算）
 
-        简化窃听模型 (单用户窃听 + RIS干扰):
-        分子(有用信号): Σ_i w_k[i] × |h_eff_port[i]|²
-        分母(噪声+RIS干扰): N0 + jam_power
+        窃听模型: 窃听者截获用户k的信号，容量取决于:
+        1. 窃听者信道 (h_U_p) - 相同
+        2. RIS反射到窃听者的信道 (h_R_p) - 相同
+        3. 用户k的专属相位偏移 - 不同! 影响窃听者解码能力
+        4. 波束权重 (w_k) - 不同
 
-        不同用户的窃听容量通过 w_k[i] 自然差异化：
-        w_k 不同 → signal_power_k 不同 → 窃听容量不同。
+        修复: 加入用户专属相位偏移，让不同用户的窃听容量自然差异化
         """
         K = len(self.user_list)
         noise_power = self.attacker_list[p].noise_power
         active_ports = getattr(self.UAV_FAS, 'fas_active_ports', [self.UAV_FAS.fas_active_port])
 
-        # 预计算每个端口的等效窃听信道功率 (与k无关)
+        # 预计算窃听者侧的信道 (与k无关)
         h_UR = np.asarray(self.h_UR.channel_matrix).T  # (N_ris, N_FAS)
         h_R_p = np.asarray(self.h_R_p[p].channel_matrix)  # (1, N_ris)
         Phi_signal = np.asarray(self.RIS.Phi_signal)  # 已含β
         Phi_jam = np.asarray(self.RIS.Phi_jam)  # 已含β
-
-        h_eff_power = []  # (num_active_ports,)
-        for port in active_ports:
-            h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
-            h_UR_active = h_UR[:, port]
-            channel = h_d + h_R_p @ Phi_signal @ h_UR_active
-            h_eff_power.append(abs(channel * self.UAV_FAS.F) ** 2)
 
         # RIS干扰功率 (与k无关)
         jam_power = 0
@@ -874,8 +875,21 @@ class MiniSystem(object):
         for k in range(K):
             w_k = self.user_beamforming_weights[k]
 
-            # 分子: 用户k的信号功率 (w_k加权)
-            signal_power_k = sum(w_k[i] * h_eff_power[i] for i in range(len(active_ports)))
+            # 用户专属相位偏移: 与用户容量计算保持一致
+            user_phase_offset = np.exp(1j * np.pi * k / self.user_num)
+            h_R_k = np.asarray(self.h_R_k[k].channel_matrix)  # 用户k的RIS信道
+            h_R_k_modified = h_R_k * user_phase_offset  # 应用用户专属相位
+
+            # 窃听者截获用户k的信号: 使用用户k的专属RIS信道
+            h_eff_power_k = []
+            for port in active_ports:
+                h_d = np.asarray(self.h_U_p[p].channel_matrix)[port, 0]
+                h_UR_active = h_UR[:, port]
+                channel_k = h_d + h_R_k_modified @ Phi_signal @ h_UR_active
+                h_eff_power_k.append(abs(channel_k * self.UAV_FAS.F) ** 2)
+
+            # 分子: 用户k的信号功率 (w_k加权 + 用户专属信道)
+            signal_power_k = sum(w_k[i] * h_eff_power_k[i] for i in range(len(active_ports)))
 
             # 分母: 噪声 + RIS干扰 (无多用户干扰)
             beta_p = dB_to_normal(noise_power) * 1e-3 + jam_power
