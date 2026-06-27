@@ -111,7 +111,7 @@ class MiniSystem(object):
                                         store_list=['beamforming_matrix', 'reflecting_coefficient', 'UAV_state',
                                                     'user_capacity', 'secure_capacity', 'attaker_capacity', 'F_power',
                                                     'reward', 'UAV_movement', 'RIS_signal_phase', 'RIS_jam_phase',
-                                                    'FAS_active_port'])
+                                                    'FAS_active_port', 'jam_ratio', 'ris_allocation'])
 
         # 初始化 UAV-FAS 实体 (FAS作为唯一发射天线)
         self.UAV_FAS = UAV_FAS(
@@ -359,6 +359,9 @@ class MiniSystem(object):
             jam_elements = int(self.RIS.ant_num * jam_ratio)
             jam_elements = max(1, min(jam_elements, self.RIS.ant_num - 1))  # 确保至少1个干扰元件，至少1个反射元件
             reflect_elements = self.RIS.ant_num - jam_elements
+            self.current_jam_ratio = jam_ratio  # 保存当前η值供存储
+            # 保存单元分配: 0=反射, 1=干扰
+            self.current_unit_allocation = [0]*reflect_elements + [1]*jam_elements
 
             # 从动作中提取相位 (第2~25维, 共24维)
             ris_action = Phi[2:26] if len(Phi) >= 26 else Phi[2:]
@@ -494,6 +497,10 @@ class MiniSystem(object):
             self.data_manager.store_data([np.mean(jam_phase) / math.pi], 'RIS_jam_phase')
             # FAS活跃端口号
             self.data_manager.store_data([self.UAV_FAS.fas_active_port], 'FAS_active_port')
+            # RIS干扰比例 η
+            self.data_manager.store_data([getattr(self, 'current_jam_ratio', 0.3)], 'jam_ratio')
+            # RIS单元分配 (64维: 0=反射, 1=干扰)
+            self.data_manager.store_data([getattr(self, 'current_unit_allocation', [0]*64)], 'ris_allocation')
 
         return new_state, reward, done, []
 
