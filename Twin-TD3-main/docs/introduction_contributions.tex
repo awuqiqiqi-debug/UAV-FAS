@@ -1,0 +1,45 @@
+\section{Introduction}\label{sec:introduction}
+
+\subsection{Background and Motivation}
+
+The rapid development of sixth-generation (6G) wireless networks has brought unprecedented challenges and opportunities for secure and energy-efficient communications~\cite{akyildiz2026fas}. Among the emerging technologies, fluid antenna systems (FAS) have attracted significant attention due to their ability to dynamically reconfigure antenna positions within a compact form factor, providing additional spatial degrees of freedom (DoFs)~\cite{wong2021fluid, zhang2023flexible}. Meanwhile, unmanned aerial vehicles (UAVs) have emerged as promising platforms for flexible and on-demand wireless communications, offering line-of-sight (LoS) dominant channels and high mobility~\cite{reda2026uav, zhu2026uav}. Furthermore, reconfigurable intelligent surfaces (RIS) have been recognized as a key enabler for enhancing signal coverage and energy efficiency through intelligent signal reflection and amplification~\cite{chen2025hybrid, zhang2025ris}.
+
+Despite the significant advances in FAS, UAV, and RIS technologies, their integration for secure and energy-efficient communications remains largely unexplored. The main challenges include: (1) the high-dimensional optimization problem arising from joint FAS port selection, UAV trajectory design, RIS phase shift configuration, and transmit beamforming; (2) the physical layer security (PLS) requirements against eavesdropping attacks; and (3) the need for real-time optimization under dynamic channel conditions. Existing works have addressed partial aspects of these challenges:
+\begin{itemize}
+    \item FAS+UAV works~\cite{reda2026uav, zhu2026uav, zhang2026uav, liu2026uav} optimize communication rate without considering security;
+    \item FAS+security works~\cite{wu2024fasris, ghadi2024ris, yao2024fas, mai2024noma, wu2025variable, zheng2026pls, ghadi2026efas} lack UAV mobility and RIS integration;
+    \item FAS+UAV+security work~\cite{wu2025faaav} does not incorporate RIS or deep reinforcement learning (DRL)-based optimization;
+    \item RIS+FAS+UAV works~\cite{shen2025ris, yang2026federated} do not consider physical layer security;
+    \item UAV+RIS+DRL+security works~\cite{hashempour2026robust} lack FAS integration;
+    \item DRL+FAS works~\cite{yang2025intelligent, peng2026grpo, ju2025joint, pakravan2026hybrid, shen2026mf} do not simultaneously address UAV trajectory, RIS phase shift, and security optimization.
+\end{itemize}
+
+To the best of our knowledge, no existing work has simultaneously addressed FAS port selection, UAV trajectory optimization, RIS phase shift configuration, and secure beamforming design using DRL for maximizing secure energy efficiency (SEE) against eavesdropping. This paper aims to fill this research gap.
+
+\subsection{Contributions}
+
+The main contributions of this paper are summarized as follows:
+
+\begin{enumerate}
+    \item \textbf{Novel FAS-UAV-RIS Secure Communication Framework}: We propose a comprehensive framework where a UAV equipped with FAS serves as a mobile transmitter, a RIS assists signal reflection and jamming generation, and multiple eavesdroppers attempt to intercept the legitimate communications. The framework captures the essential features of FAS (port selection flexibility), UAV (trajectory mobility), and RIS (phase reconfigurability) for secure communications.
+
+    \item \textbf{SEE Maximization Problem Formulation}: We formulate a secure energy efficiency (SEE) maximization problem that jointly optimizes FAS port selection, UAV trajectory, RIS phase shifts, and transmit beamforming. The problem considers practical constraints including transmit power budget, UAV mobility limitations, RIS power consumption, and quality-of-service (QoS) requirements for legitimate users.
+
+    \item \textbf{Twin-TD3 based DRL Algorithm}: We develop a Twin-delayed deep deterministic policy gradient (Twin-TD3) based DRL algorithm to solve the high-dimensional non-convex optimization problem. The proposed algorithm features: (a) twin critic networks for reduced overestimation bias; (b) delayed policy updates for improved stability; (c) target policy smoothing for robust exploration; and (d) action space design that handles mixed continuous-discrete optimization variables.
+
+    \item \textbf{Extensive Simulation Results}: We conduct comprehensive simulations to evaluate the performance of the proposed framework. The results demonstrate that:
+    \begin{itemize}
+        \item The proposed Twin-TD3 algorithm outperforms baseline DRL algorithms (DDPG, SAC, PPO) by 15\%--25\% in terms of SEE;
+        \item FAS provides 20\%--30\% SEE improvement over conventional fixed-position antennas (FPA);
+        \item RIS integration enhances SEE by 10\%--20\% through intelligent signal reflection;
+        \item The proposed framework achieves near-optimal performance with reasonable computational complexity.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Organization}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:system_model} presents the system model and problem formulation. Section~\ref{sec:proposed_algorithm} details the proposed Twin-TD3 based DRL algorithm. Section~\ref{sec:simulation} provides simulation results and analysis. Finally, Section~\ref{sec:conclusion} concludes the paper.
+
+\subsection{Notation}
+
+Throughout this paper, boldface lowercase and uppercase letters denote vectors and matrices, respectively. $(\cdot)^H$ denotes the conjugate transpose. $\|\cdot\|$ denotes the Euclidean norm. $\mathbb{E}[\cdot]$ denotes the expectation operator. $\mathcal{CN}(\mu, \sigma^2)$ denotes the circularly symmetric complex Gaussian distribution with mean $\mu$ and variance $\sigma^2$.

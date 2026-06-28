@@ -102,11 +102,11 @@ agent_1_param_dic["layer4_size"] = 256
 
 # 初始化 Agent 2 (UAV轨迹控制)
 agent_2_param_dic = {}
-agent_2_param_dic["alpha"] = 0.0001  # Actor学习率
-agent_2_param_dic["beta"] = 0.001   # Critic学习率
+agent_2_param_dic["alpha"] = 0.0003  # Actor学习率 (提高3倍)
+agent_2_param_dic["beta"] = 0.003   # Critic学习率 (提高3倍)
 agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：18维本地信息
 agent_2_param_dic["tau"] = 0.005    # soft update
-agent_2_param_dic["batch_size"] = 80  # 批次大小
+agent_2_param_dic["batch_size"] = 128  # 批次大小 (增加60%)
 agent_2_param_dic["n_actions"] = 2  # 输出2维：水平速度[vx,vy] (高度固定50m)
 agent_2_param_dic["action_noise_factor"] = 0.3  # 初始噪声
 agent_2_param_dic["memory_max_size"] = 500000  # 经验回放池容量
@@ -255,7 +255,7 @@ while episode_cnt < total_episodes:
 
         # 自适应噪声: 缓慢衰减，保持探索
         noise_scale_1 = agent_1_param_dic["action_noise_factor"] * max(0.3, 1 - episode_cnt / episode_num)
-        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.3, 1 - episode_cnt / episode_num)
+        noise_scale_2 = agent_2_param_dic["action_noise_factor"] * max(0.7, 1 - episode_cnt / episode_num)  # Agent 2保持更长探索
 
         action_1 = agent_1.choose_action(observersion_1, greedy=noise_scale_1)
         action_2 = agent_2.choose_action(observersion_2, greedy=noise_scale_2)

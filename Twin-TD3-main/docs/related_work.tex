@@ -1,0 +1,226 @@
+\section{Related Work}\label{sec:related_work}
+
+In this section, we comprehensively review the existing literature related to our work from three aspects: fluid antenna systems (FAS), physical layer security in FAS-aided communications, and deep reinforcement learning (DRL)-based optimization for FAS and reconfigurable intelligent surface (RIS) systems.
+
+\subsection{Fluid Antenna Systems and Applications}
+
+Fluid antenna systems (FAS), also known as movable antenna (MA) or flexible-position antenna, have emerged as a promising technology for sixth-generation (6G) wireless communications~\cite{wong2021fluid, zhang2023flexible}. By dynamically reconfiguring antenna positions within a compact form factor, FAS provides additional spatial degrees of freedom (DoFs) that significantly enhance channel diversity and multiplexing gains~\cite{cheng20263d}.
+
+The concept of FAS was initially proposed by Wong~\cite{wong2021fluid} and has since attracted extensive research attention. Zhang~\cite{zhang2023flexible} presented a comprehensive survey on flexible-position MIMO, covering both fluid antennas and movable antennas. The fundamental analysis of FAS performance was conducted in~\cite{new2022fundamental}, where the authors derived closed-form expressions for channel capacity under spatially correlated fading.
+
+Recent advances in FAS have focused on practical implementation challenges. Zhu~\cite{zhu2026port} investigated the port switching delay in FAS-enabled hyper-reliable low-latency communications (HRLLC), revealing a fundamental trade-off between diversity gain and finite-blocklength penalties. Qian~\cite{qian2026fas} proposed integrating FAS with low-resolution ADCs in cell-free massive MIMO systems to improve energy efficiency.
+
+\subsection{FAS-Aided UAV Communications}
+
+The integration of FAS with unmanned aerial vehicles (UAVs) has opened new avenues for enhancing wireless communication performance. Several pioneering works have explored this promising direction.
+
+Reda~\cite{reda2026uav} proposed a joint optimization framework for UAV-integrated RIS-assisted FAS, where the UAV serves as a mobile relay equipped with fluid antennas. The authors developed an alternating optimization algorithm to maximize the achievable rate by jointly optimizing UAV trajectory, RIS phase shifts, and FAS configurations. However, this work focused solely on communication rate optimization without considering physical layer security.
+
+Zhu~\cite{zhu2026uav} investigated FAS-enabled UAV communications in the finite blocklength regime, analyzing the impact of port selection overhead on system performance. The work demonstrated that FAS can significantly improve reliability for short-packet communications in UAV networks.
+
+Zhang~\cite{zhang2026uav} studied UAV-enabled FAS for multi-target wireless sensing in low-altitude wireless consumer networks (LAWCNs). The authors formulated a Cramér-Rao bound (CRB) minimization problem and developed an efficient alternating optimization algorithm to jointly optimize UAV trajectory, antenna positions, and transmit beamforming.
+
+Liu~\cite{liu2026uav} proposed a UAV-enabled ISAC framework with fluid antennas for low-altitude wireless networks. The work introduced a three-timescale optimization framework that exploits the mobility of FAs to provide additional spatial flexibility for both communication and sensing tasks.
+
+Liu~\cite{liu2025rate} investigated rate maximization for UAV-enabled ISAC with FAS, where the UAV trajectory and antenna positions are jointly optimized to maximize the achievable rate. Zhang~\cite{zhang2026radiation} proposed radiation pattern reconfigurable FAS-empowered UAV communications, where the antenna radiation patterns can be dynamically adjusted to enhance communication performance.
+
+Siyun~\cite{siyun2025fair} studied fair resource allocation in UAV-based semantic communication systems with FAS, demonstrating that fluid antennas can significantly improve fairness among multiple users. These works collectively demonstrate the growing interest in integrating FAS with UAV communications for various optimization objectives.
+
+\subsection{Physical Layer Security in FAS-Aided Systems}
+
+Physical layer security (PLS) has been extensively studied in FAS-aided communication systems, where the spatial reconfigurability of fluid antennas provides new opportunities for enhancing secrecy performance.
+
+Wu~\cite{wu2024fasris} investigated the security of FAS-RIS communication systems, where both legitimate users and eavesdroppers are equipped with fluid antennas. Using a block-correlation model, the authors derived approximate expressions for average secrecy capacity and secrecy outage probability (SOP).
+
+Ghadi~\cite{ghadi2024ris} examined the impact of FAS on RIS-aided secure communications. Considering a classic wiretap channel with a fixed-position antenna transmitter and FAS-equipped legitimate/eavesdropping receivers, the work derived compact analytical expressions for SOP.
+
+Yao~\cite{yao2024fas} proposed a FAS-aided secure and covert communication system, where the transmitter adjusts multiple fluid antennas' positions to achieve secure and covert transmission against both eavesdroppers and warden. An alternating optimization (AO) framework was developed to maximize the secrecy rate.
+
+Mai~\cite{mai2024noma} presented a secure beamforming design for downlink NOMA systems utilizing FAS. The work considered a base station with multiple fluid antennas serving center and edge users, where edge users are potential eavesdroppers.
+
+Wu~\cite{wu2025variable} proposed a variable block-correlation model for FAS security analysis. The work derived new closed-form expressions for average secrecy capacity and SOP, demonstrating that the proposed model achieves simulation-aligned accuracy with relative errors consistently below 5\%.
+
+Zheng~\cite{zheng2026pls} developed a comprehensive PLS framework for FAS-aided short-packet systems. The work derived closed-form and asymptotic expressions for average achievable secrecy throughput (AAST) under the variable block-correlation model.
+
+Ghadi~\cite{ghadi2026efas} investigated enormous FAS (E-FAS) under correlated surface-wave leakage for physical layer security. The work considered MISO wiretap channels with MMSE channel estimation and MRT plus artificial noise, deriving closed-form expressions for SOP and ergodic secrecy rate (ESR).
+
+Li~\cite{li2025fas} investigated physical layer security in FAS-aided wireless powered NOMA systems, where the spatial flexibility of FAS is exploited to enhance secrecy performance against eavesdropping. Si~\cite{si2024reliable} studied reliable and secure communication through ultra-massive arrays, providing insights into the security guarantees achievable with large-scale antenna systems.
+
+\subsection{Energy Efficiency in FAS-Aided Systems}
+
+Energy efficiency (EE) is a critical design criterion for FAS systems due to the additional power consumption of antenna position reconfiguration. Ahmad~\cite{ahmad2025energy} investigated energy efficient FAS relay systems, where the trade-off between diversity gain and power consumption is analyzed. Bithas~\cite{bithas2025dependability} proposed a dependability theory-based quality of service framework for FAS, providing a comprehensive analysis of system reliability and energy efficiency.
+
+These works highlight the importance of considering energy efficiency in FAS system design, which is a key aspect of our proposed SEE maximization framework.
+
+\subsection{FAS-Aided UAV Secure Communications}
+
+The combination of FAS, UAVs, and physical layer security represents a particularly relevant research direction for our work.
+
+Wu~\cite{wu2025faaav} proposed a framework incorporating fluid antenna and artificial noise techniques for autonomous aerial vehicle (AAV) secure communications. The work maximized the minimum secrecy rate (MSR) among multiple eavesdroppers by jointly optimizing AAV deployment, signal and AN precoders, and FA positions. Two FA movement modes were considered: free movement and zonal movement. However, this work did not incorporate RIS or DRL-based optimization.
+
+Shen~\cite{shen2025ris} studied RIS-aided fluid antenna array-mounted AAV networks. The work demonstrated that the combination of RIS and FAS can significantly enhance communication performance in UAV networks. However, the optimization focused on achievable rate rather than secrecy performance.
+
+\subsection{RIS-Assisted FAS Communications}
+
+The integration of RIS with FAS has attracted significant research attention due to the complementary advantages of both technologies.
+
+Chen~\cite{chen2025hybrid} proposed hybrid beamforming for RIS-assisted multiuser FAS. The work developed a low-complexity beamforming design that exploits the spatial flexibility of both RIS and FAS to enhance multiuser communication performance.
+
+Zhang~\cite{zhang2025ris} investigated FAS meets RIS with random matrix analysis and two-timescale design for multi-user communications. The work provided fundamental performance limits and practical optimization algorithms for RIS-assisted FAS systems.
+
+Li~\cite{li2026absorptive} studied absorptive RIS-assisted near-field covert communication with FAS. The work demonstrated that the combination of absorptive RIS and FAS can achieve covert communication in the near-field regime.
+
+Shi~\cite{shi2026star} proposed STAR-RIS aided FAS with joint optimization of discrete positions and phases. The work developed efficient algorithms for optimizing both the RIS phase shifts and FAS configurations under discrete constraints.
+
+Chen~\cite{chen2024lowcomplexity} proposed low-complexity beamforming for RIS-assisted FAS, reducing the computational complexity while maintaining performance. Li~\cite{li2024performance} conducted performance analysis of multi-RIS-assisted FAS, providing fundamental insights into the diversity and array gains achievable with multiple RISs.
+
+Wang~\cite{wang2025novel} introduced novel selection schemes for multi-RIS-assisted FAS, demonstrating that intelligent RIS selection can significantly improve system performance. Li~\cite{li2026swipt} investigated SWIPT optimization for multi-RIS-assisted FAS, addressing the joint optimization of information and energy transfer.
+
+Zhao~\cite{zhao2026rician} analyzed the performance of RIS-assisted FAS over Rician fading channels, providing closed-form expressions for key performance metrics. Mondal~\cite{mondal2026v2v} studied V2V communication with FAS aided by RIS, demonstrating the applicability of this technology in vehicular networks.
+
+Zhu~\cite{zhu2025fa} proposed FA empowered index modulation for RIS-aided mmWave transmissions, where the fluid antenna positions are optimized to enhance the index modulation performance. Mondal~\cite{mondal2026ris} investigated RIS-aided fluid antenna-enabled multiuser NOMA non-terrestrial networks, addressing the unique challenges of satellite communications with FAS.
+
+\subsection{DRL-Based Optimization for FAS and RIS}
+
+Deep reinforcement learning (DRL) has emerged as a powerful tool for optimizing FAS and RIS systems, particularly for problems with high-dimensional action spaces and complex constraints.
+
+Yang~\cite{yang2025intelligent} proposed a BCD framework combined with DRL (DDPG) for intelligent antenna positioning in FAS-aided ISAC systems. The work demonstrated that DRL can effectively handle the mixed continuous-discrete optimization problem arising from FAS port selection.
+
+Peng~\cite{peng2026grpo} introduced group relative policy optimization (GRPO) for robust blind interference alignment with fluid antennas. The work showed that GRPO can reduce model size and FLOPs by nearly half compared to PPO while achieving superior performance.
+
+Ju~\cite{ju2025joint} developed a hierarchical Twin-Dueling multi-agent (HiTDMA) framework combined with game theory for joint channel estimation and computation offloading in FAS-assisted MEC networks. The work demonstrated the effectiveness of multi-agent DRL for FAS optimization.
+
+Pakravan~\cite{pakravan2026hybrid} proposed LSTM-DDPG for fluid antenna-enabled hybrid NOMA and AirFL networks under imperfect CSI and SIC. The work showed that memory-based DRL algorithms can effectively handle temporal dependencies in FAS optimization.
+
+Shen~\cite{shen2026mf} proposed a self-optimized multi-agent hybrid DRL framework (SOHRL) for aerial multi-functional RIS in fluid antennas-aided full-duplex networks. The work integrated multi-agent DQN and multi-agent PPO to handle discrete and continuous actions respectively, maximizing the overall energy efficiency (EE). However, this work focused on EE rather than secure energy efficiency (SEE).
+
+Chen~\cite{chen2026adaptive} proposed adaptive joint beamforming and fluid antenna for 6G ISAC systems, where DRL is used to jointly optimize beamforming vectors and antenna positions. The work demonstrated the effectiveness of DRL in handling the mixed continuous-discrete optimization problem. Xu~\cite{xu2025transformer} developed a transformer-based collaborative reinforcement learning framework for FAS-enabled 3D UAV positioning, where multiple UAVs cooperatively optimize their positions using transformer-based DRL.
+
+Zhang~\cite{zhang2026indoor} proposed indoor FAS enabled by layout-specific modeling and GRPO, demonstrating the applicability of DRL for indoor FAS optimization. These works collectively show the growing adoption of DRL for FAS optimization across various scenarios.
+
+\subsection{UAV-RIS Secure Communications with DRL}
+
+The combination of UAV, RIS, and DRL for secure communications has been studied in several recent works, though without incorporating FAS.
+
+Yang~\cite{yang2026federated} proposed adaptive personalized federated reinforcement learning for RIS-assisted aerial relays in SAGINs with fluid antennas. The work optimized UAV trajectory and RIS phase control using federated RL. However, the work focused on rate maximization rather than secure energy efficiency.
+
+Hashempour~\cite{hashempour2026robust} investigated robust SAC-enabled UAV-RIS assisted secure MISO systems with untrusted EH receivers. The work compared SAC, TD3, and DDPG algorithms for maximizing weighted secure energy efficiency (WCSEE). This work is particularly relevant as it directly compares different DRL algorithms for UAV-RIS security optimization, but it does not incorporate FAS.
+
+\subsection{Surveys on FAS and Related Technologies}
+
+Several comprehensive surveys have been published to summarize the advances in FAS and related technologies. Zhang~\cite{zhang2023flexible} presented a comprehensive survey on flexible-position MIMO, covering both fluid antennas and movable antennas, providing a systematic overview of the fundamentals and design principles. Xu~\cite{xu2025survey} provided a comprehensive survey on FA-assisted non-terrestrial networks in 6G and beyond, covering the fundamentals, state of the art, and future directions for FAS in satellite and high-altitude platform communications.
+
+Pakravan~\cite{pakravan2026survey} surveyed FAS under channel uncertainty and hardware impairments, identifying key challenges including channel estimation errors, antenna position uncertainty, and hardware non-idealities. Akyildiz~\cite{akyildiz2026fas} proposed an AI-native control paradigm for FAS networks beyond beamforming, envisioning the role of artificial intelligence in future FAS systems.
+
+Zheng~\cite{zheng2026llm} introduced LLM-enabled automated algorithm design for multiuser FAS communications, demonstrating the potential of large language models in optimizing FAS systems. These surveys collectively provide a comprehensive overview of the FAS research landscape and identify promising research directions.
+
+\subsection{Summary and Research Gap}
+
+Table~\ref{tab:related_work_comparison} summarizes the comparison between existing works and our proposed framework. As shown, most existing works focus on partial aspects of the problem:
+\begin{itemize}
+    \item FAS+UAV works~\cite{reda2026uav, zhu2026uav, zhang2026uav, liu2026uav, liu2025rate, zhang2026radiation, siyun2025fair} optimize communication rate without considering security;
+    \item FAS+security works~\cite{wu2024fasris, ghadi2024ris, yao2024fas, mai2024noma, wu2025variable, zheng2026pls, ghadi2026efas, li2025fas, si2024reliable} lack UAV mobility and RIS integration;
+    \item FAS+UAV+security work~\cite{wu2025faaav} does not incorporate RIS or DRL-based optimization;
+    \item RIS+FAS works~\cite{chen2025hybrid, zhang2025ris, li2026absorptive, shi2026star, chen2024lowcomplexity, li2024performance, wang2025novel, li2026swipt, zhao2026rician, mondal2026v2v, zhu2025fa, mondal2026ris} lack UAV mobility and security optimization;
+    \item RIS+FAS+UAV works~\cite{shen2025ris, yang2026federated} do not consider physical layer security;
+    \item FAS+EE works~\cite{ahmad2025energy, bithas2025dependability} do not consider security or UAV/RIS integration;
+    \item UAV+RIS+DRL+security works~\cite{hashempour2026robust} lack FAS integration;
+    \item DRL+FAS works~\cite{yang2025intelligent, peng2026grpo, ju2025joint, pakravan2026hybrid, shen2026mf, chen2026adaptive, xu2025transformer, zhang2026indoor} do not simultaneously address UAV trajectory, RIS phase shift, and security optimization;
+    \item FAS survey works~\cite{zhang2023flexible, xu2025survey, pakravan2026survey, akyildiz2026fas, zheng2026llm} provide comprehensive overviews but do not propose specific optimization frameworks.
+\end{itemize}
+
+To the best of our knowledge, this is the first work that jointly optimizes FAS port selection, UAV trajectory, RIS phase shift, and transmit beamforming using Twin-TD3 algorithm to maximize secure energy efficiency (SEE) against eavesdropping. The main contributions of this work are summarized as follows:
+\begin{enumerate}
+    \item We propose a novel FAS-UAV-RIS secure communication framework where a UAV equipped with FAS serves as a mobile transmitter, a RIS assists signal reflection and jamming generation, and multiple eavesdroppers attempt to intercept the legitimate communications.
+    \item We formulate a SEE maximization problem that jointly optimizes FAS port selection, UAV trajectory, RIS phase shifts, and transmit beamforming under constraints of transmit power, UAV mobility, and RIS power consumption.
+    \item We develop a Twin-TD3 based deep reinforcement learning algorithm to solve the high-dimensional non-convex optimization problem, where the agent learns to make sequential decisions on all optimization variables.
+    \item Extensive simulation results demonstrate that the proposed framework significantly outperforms baseline schemes including conventional FPA, single-antenna UAV, and other DRL algorithms (DDPG, SAC, PPO) in terms of SEE performance.
+\end{enumerate}
+
+\begin{table*}[t]
+\centering
+\caption{Comparison of Related Works with Our Proposed Framework}
+\label{tab:related_work_comparison}
+\begin{tabular}{|l|c|c|c|c|c|c|c|}
+\hline
+\textbf{Work} & \textbf{FAS} & \textbf{UAV} & \textbf{RIS} & \textbf{Security} & \textbf{DRL} & \textbf{SEE} & \textbf{Year} \\
+\hline
+\multicolumn{8}{|l|}{\textit{FAS + UAV Communications}} \\
+\hline
+\cite{reda2026uav} & \checkmark & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{zhu2026uav} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{zhang2026uav} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{liu2026uav} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{liu2025rate} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{zhang2026radiation} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{siyun2025fair} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\hline
+\multicolumn{8}{|l|}{\textit{FAS + Physical Layer Security}} \\
+\hline
+\cite{wu2024fasris} & \checkmark & $\times$ & \checkmark & \checkmark & $\times$ & $\times$ & 2024 \\
+\cite{ghadi2024ris} & \checkmark & $\times$ & \checkmark & \checkmark & $\times$ & $\times$ & 2024 \\
+\cite{yao2024fas} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2024 \\
+\cite{mai2024noma} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2024 \\
+\cite{si2024reliable} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2024 \\
+\cite{wu2025variable} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2025 \\
+\cite{li2025fas} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2025 \\
+\cite{zheng2026pls} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2026 \\
+\cite{ghadi2026efas} & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & $\times$ & 2026 \\
+\hline
+\multicolumn{8}{|l|}{\textit{FAS + UAV + Security}} \\
+\hline
+\cite{wu2025faaav} & \checkmark & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & 2025 \\
+\hline
+\multicolumn{8}{|l|}{\textit{RIS-Assisted FAS Communications}} \\
+\hline
+\cite{chen2025hybrid} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{zhang2025ris} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{li2026absorptive} & \checkmark & $\times$ & \checkmark & \checkmark & $\times$ & $\times$ & 2026 \\
+\cite{shi2026star} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{chen2024lowcomplexity} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2024 \\
+\cite{li2024performance} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2024 \\
+\cite{wang2025novel} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{li2026swipt} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{zhao2026rician} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{mondal2026v2v} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{zhu2025fa} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{mondal2026ris} & \checkmark & $\times$ & \checkmark & $\times$ & $\times$ & $\times$ & 2026 \\
+\hline
+\multicolumn{8}{|l|}{\textit{RIS + FAS + UAV}} \\
+\hline
+\cite{shen2025ris} & \checkmark & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{yang2026federated} & \checkmark & \checkmark & \checkmark & $\times$ & \checkmark & $\times$ & 2026 \\
+\hline
+\multicolumn{8}{|l|}{\textit{FAS + Energy Efficiency}} \\
+\hline
+\cite{ahmad2025energy} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{bithas2025dependability} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\hline
+\multicolumn{8}{|l|}{\textit{UAV + RIS + DRL + Security (without FAS)}} \\
+\hline
+\cite{hashempour2026robust} & $\times$ & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 2026 \\
+\hline
+\multicolumn{8}{|l|}{\textit{DRL-Based FAS Optimization}} \\
+\hline
+\cite{yang2025intelligent} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2025 \\
+\cite{peng2026grpo} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2026 \\
+\cite{ju2025joint} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2025 \\
+\cite{pakravan2026hybrid} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2026 \\
+\cite{shen2026mf} & \checkmark & \checkmark & \checkmark & $\times$ & \checkmark & \checkmark & 2026 \\
+\cite{chen2026adaptive} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2026 \\
+\cite{xu2025transformer} & \checkmark & \checkmark & $\times$ & $\times$ & \checkmark & $\times$ & 2025 \\
+\cite{zhang2026indoor} & \checkmark & $\times$ & $\times$ & $\times$ & \checkmark & $\times$ & 2026 \\
+\hline
+\multicolumn{8}{|l|}{\textit{FAS Survey Papers}} \\
+\hline
+\cite{zhang2023flexible} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2023 \\
+\cite{xu2025survey} & \checkmark & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & 2025 \\
+\cite{pakravan2026survey} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{akyildiz2026fas} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2026 \\
+\cite{zheng2026llm} & \checkmark & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & 2026 \\
+\hline
+\hline
+\textbf{Ours} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 2026 \\
+\hline
+\end{tabular}
+\end{table*}
