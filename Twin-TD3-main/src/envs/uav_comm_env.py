@@ -305,19 +305,20 @@ class MiniSystem(object):
             # ====== 端口选择：Gumbel-Softmax + Top-K (2~3端口) ======
             port_logits_tensor = torch.tensor(G[:self.UAV_FAS.fas_num_ports], dtype=torch.float)
             if self.training:
-                # 课程学习: τ从1.0衰减到0.1，逐步从随机→确定性选择
-                # 余弦退火: τ 从 0.8 缓慢降到 0.1
+                # 课程学习: 余弦退火，平滑衰减τ从0.6到0.1，无突变点
                 if not hasattr(self, '_gumbel_tau'):
-                    self._gumbel_tau = 0.8
+                    self._gumbel_tau = 0.6
                     self._gumbel_step = 0
                 self._gumbel_step += 1
                 progress = min(1.0, self._gumbel_step / max(1, self.total_train_steps))
-                # 前50%训练保持高探索(τ=0.6~0.8)，后50%才衰减到0.1
-                if progress < 0.5:
-                    self._gumbel_tau = 0.6 + 0.2 * (1.0 - progress / 0.5)
-                else:
-                    decay_progress = (progress - 0.5) / 0.5
-                    self._gumbel_tau = 0.6 - 0.5 * decay_progress
+
+                # 余弦退火: τ从0.6平滑降到0.1
+                # 优势: 起点和终点斜率为0，无突变点，避免RIS分配策略突变
+                self._gumbel_tau = 0.1 + 0.25 * (1 + math.cos(math.pi * progress))
+                # progress=0: τ=0.1+0.25×2=0.6 (高探索)
+                # progress=0.5: τ=0.1+0.25×1=0.35 (中等探索)
+                # progress=1.0: τ=0.1+0.25×0=0.1 (低探索)
+
                 port_probs = F.gumbel_softmax(port_logits_tensor, tau=self._gumbel_tau, hard=False)
                 # 选择概率最高的K个端口
                 _, topk_indices = torch.topk(port_probs, self.num_active_ports)
@@ -603,16 +604,26 @@ class MiniSystem(object):
         E_p = get_energy_consumption(v_t)
         E_p_norm = (E_p - ENERGY_MIN) / (ENERGY_MAX - ENERGY_MIN + 1e-10)
         E_p_norm = max(0, min(1, E_p_norm))
-        lambda_e = 0.03
+        lambda_e = 0.02  # 降低能耗惩罚 (0.03→0.02)，避免惩罚移动
         p_e = lambda_e * E_p_norm
 
         # === 7. 窃听者容量惩罚 (最坏情况) ===
         # 取所有用户中窃听容量的最大值（最坏情况）
         max_eavesdrop = np.max(self.eavesdrop_capacity_array)
-        # 归一化到[0,1]: 以5bits/s/Hz为参考上限
+        # 归一化到[0,1]: 以15bits/s/Hz为参考上限
         p_eve = min(max_eavesdrop / 15.0, 1.0)  # log2下参考值调大 (原5.0 × 3.32)
         # 自适应惩罚系数：窃听容量越大，惩罚越重
         lambda_eve = 0.5 + 1.0 * min(max_eavesdrop / 3.0, 1.0)  # 范围 [0.5, 1.5]
+
+        # --- 7b. 窃听容量下限惩罚 ---
+        # 目标：将窃听容量压制在EVE_THRESHOLD以下
+        # 原理：当窃听容量超过阈值时，施加固定高强度惩罚，防止训练后期反弹
+        EVE_THRESHOLD = 2.0  # 目标窃听容量上限 (bits/s/Hz) (2.5→2.0, 更严格)
+        p_eve_floor = max(0, max_eavesdrop - EVE_THRESHOLD) / EVE_THRESHOLD
+        lambda_eve_floor = 2.0  # 固定惩罚系数 (高强度)
+
+        # 组合惩罚 = 原自适应惩罚 + 下限惩罚
+        total_eve_penalty = lambda_eve * p_eve + lambda_eve_floor * p_eve_floor
 
         # === 8. RIS干扰效果奖励 ===
         # 鼓励Agent增加干扰单元，降低窃听容量
@@ -626,21 +637,26 @@ class MiniSystem(object):
             R_ris_effect = jam_ratio_actual * eavesdrop_reduction
 
         # === 组合奖励 ===
-        raw_reward = (0.12 * total_secrecy  # 主目标: 保密速率
-                      + 0.1 * R_fas  # FAS辅助安全
-                      + 0.75 * R_spatial  # 空间引导
-                      + 0.3 * R_ris_effect  # RIS干扰效果
-                      - 0.1 * p_m  # 功率约束
-                      - 0.5 * p_r  # 最低安全速率约束
-                      - 0.05 * p_e  # 能耗惩罚
-                      - lambda_eve * p_eve)  # 窃听者容量惩罚
+        # 权重调整原则：
+        # 1. 提高secrecy权重(0.25→0.30)，增强安全优化动力
+        # 2. 降低R_spatial权重(0.55→0.40)，减少"不动"诱惑
+        # 3. 保持总权重相近，避免奖励尺度剧变
+        raw_reward = (0.30 * total_secrecy  # 主目标: 保密速率 (0.25→0.30, +20%)
+                      + 0.08 * R_fas  # FAS辅助安全 (保持)
+                      + 0.40 * R_spatial  # 空间引导 (0.55→0.40, -27%)
+                      + 0.3 * R_ris_effect  # RIS干扰效果 (保持)
+                      - 0.1 * p_m  # 功率约束 (保持)
+                      - 0.5 * p_r  # 最低安全速率约束 (保持)
+                      - 0.02 * p_e  # 能耗惩罚 (0.05→0.02, 降低60%)
+                      - total_eve_penalty)  # 窃听者容量惩罚 (组合惩罚)
 
         # === 计算SEE (安全能效) ===
         # SEE = 总安全速率 / 总能耗 (bits/J)
         E_total = get_energy_consumption(v_t)  # 焦耳
         self.current_see = total_secrecy / (E_total + 1e-10)  # 避免除零
 
-        return np.clip(raw_reward, -5.0, 5.0)
+        # 放宽裁剪范围，保留更多信息，避免Critic无法区分"好"和"非常好"
+        return np.clip(raw_reward, -10.0, 10.0)
 
     def find_optimal_uav_position(self, grid_step=10):
         """

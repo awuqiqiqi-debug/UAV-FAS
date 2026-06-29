@@ -1,4 +1,4 @@
-"""生成td3_see训练报告 - 1000轮版本 (新位置配置)"""
+"""生成td3_see训练报告 - 1500轮版本 (新位置配置)"""
 import json, scipy.io as sio, numpy as np, csv, os
 
 mat_dir = 'Twin-TD3-main/data/storage/uav_bs_fas/scratch/td3_see'
@@ -20,7 +20,7 @@ ma50 = moving_avg(scores, w=50)
 ma100 = moving_avg(scores, w=100)
 
 # ========== 选择关键episode (每100轮) ==========
-selected_eps = list(range(0, 1000, 100)) + [999]  # 0, 100, 200, ..., 900, 999
+selected_eps = list(range(0, 1500, 100)) + [1499]  # 0, 100, 200, ..., 1400, 1499
 episode_data = {}
 for ep in selected_eps:
     try:
@@ -116,7 +116,7 @@ ep_headers = ''.join('<th>Ep ' + str(ep) + '</th>' for ep in selected_eps)
 html = '<!DOCTYPE html>\n'
 html += '<html lang="zh-CN">\n<head>\n'
 html += '<meta charset="UTF-8">\n'
-html += '<title>FAS-UAV TD3训练报告 (1100轮, 新位置配置)</title>\n'
+html += '<title>FAS-UAV TD3训练报告 (1500轮, 新位置配置)</title>\n'
 html += '<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>\n'
 html += '<style>\n'
 html += '@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap");\n'

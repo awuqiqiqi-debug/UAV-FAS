@@ -102,8 +102,8 @@ agent_1_param_dic["layer4_size"] = 256
 
 # 初始化 Agent 2 (UAV轨迹控制)
 agent_2_param_dic = {}
-agent_2_param_dic["alpha"] = 0.0003  # Actor学习率 (提高3倍)
-agent_2_param_dic["beta"] = 0.003   # Critic学习率 (提高3倍)
+agent_2_param_dic["alpha"] = 0.0001  # Actor学习率 (与Agent 1一致，避免追逐振荡)
+agent_2_param_dic["beta"] = 0.001   # Critic学习率 (与Agent 1一致)
 agent_2_param_dic["input_dims"] = system.get_uav_local_state_dim()  # 输入维度：18维本地信息
 agent_2_param_dic["tau"] = 0.005    # soft update
 agent_2_param_dic["batch_size"] = 128  # 批次大小 (增加60%)
@@ -287,9 +287,20 @@ while episode_cnt < total_episodes:
         agent_2.remember(observersion_2, action_2, reward, new_state_2, int(done))
 
         agent_1.learn()
-        # 双Agent稳定性: Agent 2每2步学习1次，降低非稳态影响
-        if not TRAINED_UAV and step_cnt % 2 == 0:
-            agent_2.learn()
+        # 渐进式耦合训练: 逐渐增加Agent 2的学习频率，降低双Agent非稳态影响
+        # 阶段1 (Ep 0-300): Agent 2每4步学1次 (弱耦合，让Agent 1先稳定)
+        # 阶段2 (Ep 300-600): Agent 2每3步学1次 (中等耦合)
+        # 阶段3 (Ep 600+): Agent 2每2步学1次 (正常耦合)
+        if not TRAINED_UAV:
+            if episode_cnt < 300:
+                learn_interval = 4  # 弱耦合
+            elif episode_cnt < 600:
+                learn_interval = 3  # 中等耦合
+            else:
+                learn_interval = 2  # 正常耦合
+
+            if step_cnt % learn_interval == 0:
+                agent_2.learn()
 
         observersion_1 = new_state_1
         observersion_2 = new_state_2
